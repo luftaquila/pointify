@@ -19,6 +19,8 @@ use claude::{ClaudeCache, ClaudeUsageEntry};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
 
+struct ClaudeTtl(AtomicU64);
+
 #[derive(Serialize)]
 struct MetricOptions {
     cpu_core_count: usize,
@@ -44,8 +46,12 @@ struct Config {
     interval_ms: u64,
     gauge_count: usize,
     gauges: Vec<GaugeConfig>,
+    #[serde(default = "default_claude_refresh")]
+    claude_refresh_secs: u64,
     theme: String,
 }
+
+fn default_claude_refresh() -> u64 { 120 }
 
 #[tauri::command]
 fn get_metrics(state: State<SharedMetrics>) -> Option<SystemMetrics> {
@@ -74,6 +80,35 @@ fn save_config(app: tauri::AppHandle, config: Config) {
     }
 }
 
+#[derive(Serialize, Clone)]
+struct SerialPortInfo {
+    port: String,
+    product: String,
+}
+
+#[tauri::command]
+fn list_serial_ports() -> Vec<SerialPortInfo> {
+    serialport::available_ports()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|p| {
+            if let serialport::SerialPortType::UsbPort(usb) = &p.port_type {
+                if !(usb.vid == 512 && usb.pid == 731) { return None; }
+                return Some(SerialPortInfo {
+                    port: p.port_name,
+                    product: usb.product.clone().unwrap_or_default(),
+                });
+            }
+            None
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn set_claude_ttl(ttl: State<'_, ClaudeTtl>, secs: u64) {
+    ttl.0.store(secs, Ordering::Relaxed);
+}
+
 #[tauri::command]
 fn open_claude_env(app: tauri::AppHandle) -> Result<(), String> {
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
@@ -84,15 +119,17 @@ fn open_claude_env(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn get_claude_usage(
     cache: State<'_, ClaudeCache>,
+    ttl: State<'_, ClaudeTtl>,
     app: tauri::AppHandle,
 ) -> Result<Option<HashMap<String, ClaudeUsageEntry>>, String> {
     let cache = cache.inner().clone();
+    let ttl_secs = ttl.0.load(Ordering::Relaxed);
 
-    // Return cached data if fresh (30s TTL)
+    // Return cached data if fresh
     {
         let cached = cache.lock().map_err(|e| e.to_string())?;
         if let Some((time, data)) = cached.as_ref() {
-            if time.elapsed() < std::time::Duration::from_secs(30) {
+            if time.elapsed() < std::time::Duration::from_secs(ttl_secs) {
                 return Ok(Some(data.clone()));
             }
         }
@@ -156,16 +193,18 @@ pub fn run() {
     let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
     let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
+    let claude_ttl = ClaudeTtl(AtomicU64::new(120));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(shared_metrics.clone())
         .manage(shared_interval.clone())
         .manage(claude_cache)
+        .manage(claude_ttl)
         .invoke_handler(tauri::generate_handler![
-            get_metrics, get_metric_options, set_interval,
+            get_metrics, get_metric_options, set_interval, list_serial_ports,
             load_config, save_config,
-            open_claude_env, get_claude_usage
+            open_claude_env, set_claude_ttl, get_claude_usage
         ])
         .setup(move |app| {
             // Build tray menu
