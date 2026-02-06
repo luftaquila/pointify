@@ -2,6 +2,7 @@ pub mod gpu;
 pub mod system;
 pub mod types;
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -11,8 +12,9 @@ use system::SystemMonitor;
 use types::SystemMetrics;
 
 pub type SharedMetrics = Arc<Mutex<Option<SystemMetrics>>>;
+pub type SharedInterval = Arc<AtomicU64>;
 
-pub fn start_monitoring(state: SharedMetrics) {
+pub fn start_monitoring(state: SharedMetrics, interval: SharedInterval) {
     thread::spawn(move || {
         let mut sys_monitor = SystemMonitor::new();
         let gpu_monitor = GpuMonitor::new();
@@ -37,7 +39,8 @@ pub fn start_monitoring(state: SharedMetrics) {
                 *lock = Some(metrics);
             }
 
-            thread::sleep(Duration::from_secs(1));
+            let ms = interval.load(Ordering::Relaxed);
+            thread::sleep(Duration::from_millis(ms));
         }
     });
 }

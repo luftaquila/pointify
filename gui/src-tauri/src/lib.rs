@@ -1,8 +1,10 @@
 mod monitor;
 
+use std::fs;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
@@ -11,7 +13,7 @@ use tauri::{
 };
 
 use monitor::types::SystemMetrics;
-use monitor::SharedMetrics;
+use monitor::{SharedInterval, SharedMetrics};
 
 #[derive(Serialize)]
 struct MetricOptions {
@@ -22,9 +24,50 @@ struct MetricOptions {
     gpu_names: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct GaugeConfig {
+    metric_id: String,
+    sub_index: usize,
+    max_value: Option<f64>,
+    max_unit: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Config {
+    active: bool,
+    interval_ms: u64,
+    gauge_count: usize,
+    gauges: Vec<GaugeConfig>,
+    theme: String,
+}
+
 #[tauri::command]
 fn get_metrics(state: State<SharedMetrics>) -> Option<SystemMetrics> {
     state.lock().ok().and_then(|lock| lock.clone())
+}
+
+#[tauri::command]
+fn set_interval(interval: State<SharedInterval>, ms: u64) {
+    interval.store(ms, Ordering::Relaxed);
+}
+
+#[tauri::command]
+fn load_config(app: tauri::AppHandle) -> Option<Config> {
+    let path = app.path().app_config_dir().ok()?.join("config.json");
+    let data = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&data).ok()
+}
+
+#[tauri::command]
+fn save_config(app: tauri::AppHandle, config: Config) {
+    if let Ok(dir) = app.path().app_config_dir() {
+        let _ = fs::create_dir_all(&dir);
+        if let Ok(json) = serde_json::to_string_pretty(&config) {
+            let _ = fs::write(dir.join("config.json"), json);
+        }
+    }
 }
 
 #[tauri::command]
@@ -57,11 +100,13 @@ fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
 
 pub fn run() {
     let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
+    let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(shared_metrics.clone())
-        .invoke_handler(tauri::generate_handler![get_metrics, get_metric_options])
+        .manage(shared_interval.clone())
+        .invoke_handler(tauri::generate_handler![get_metrics, get_metric_options, set_interval, load_config, save_config])
         .setup(move |app| {
             // Build tray menu
             let show = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
@@ -114,7 +159,7 @@ pub fn run() {
                 .build(app)?;
 
             // Start hardware monitoring
-            monitor::start_monitoring(shared_metrics);
+            monitor::start_monitoring(shared_metrics, shared_interval);
 
             Ok(())
         })

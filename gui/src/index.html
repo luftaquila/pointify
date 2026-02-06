@@ -117,7 +117,7 @@
 
     /* ── Gauge grid ── */
     .grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
     }
     .grid.paused .gauge-card { opacity: .45; }
@@ -158,7 +158,7 @@
       gap: 3px; margin-top: 6px; width: 100%; min-height: 84px;
     }
 
-    .ctrl-row { display: flex; align-items: center; gap: 4px; height: 26px; }
+    .ctrl-row { display: flex; align-items: center; gap: 4px; min-height: 26px; }
 
     .ctrl-row label {
       font-size: 11px; color: var(--muted);
@@ -167,13 +167,13 @@
     }
 
     .ctrl-row select {
-      flex: 1; min-width: 0; height: 26px;
-      padding: 2px 20px 2px 8px;
+      flex: 1; min-width: 0; height: auto; min-height: 26px;
+      padding: 4px 20px 4px 8px;
       background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
       color: var(--accent); font-family: inherit; font-size: 12px;
       cursor: pointer; appearance: none; -webkit-appearance: none;
       background-image: var(--arrow); background-repeat: no-repeat; background-position: right 7px center;
-      text-overflow: ellipsis;
+      white-space: normal; text-align: center;
       transition: background .3s, border-color .3s, color .3s;
     }
     .ctrl-row select:focus { outline: 1px solid var(--accent); }
@@ -212,10 +212,13 @@
         <div class="setting-row">
           <span>Interval</span>
           <select id="interval-select">
+            <option value="100">100 ms</option>
+            <option value="200" selected>200 ms</option>
             <option value="500">500 ms</option>
-            <option value="1000" selected>1 s</option>
+            <option value="1000">1 s</option>
             <option value="2000">2 s</option>
             <option value="5000">5 s</option>
+            <option value="10000">10 s</option>
           </select>
         </div>
       </div>
@@ -289,7 +292,7 @@
   let metricOptions = null;
   let gaugeCount = 3;
   let isActive = true;
-  let pollingMs = 1000;
+  let pollingMs = 200;
   let pollingTimer = null;
 
   // ── Gauge state ──
@@ -363,13 +366,13 @@
         const def = METRICS.find(m => m.id === metricSel.value);
         gaugeStates[i] = initGaugeState(def);
         card.querySelector('[data-label]').textContent = def.label;
-        updateSubDropdown(i); updateMaxRow(i);
+        updateSubDropdown(i); updateMaxRow(i); saveConfig();
       });
 
       const maxIn = card.querySelector(`[data-max-value="${i}"]`);
       const maxU  = card.querySelector(`[data-max-unit="${i}"]`);
-      maxIn.addEventListener('input', () => { const v = parseFloat(maxIn.value); if (!isNaN(v) && v > 0) gaugeStates[i].maxValue = v; });
-      maxU.addEventListener('change', () => { gaugeStates[i].maxUnit = maxU.value; });
+      maxIn.addEventListener('input', () => { const v = parseFloat(maxIn.value); if (!isNaN(v) && v > 0) gaugeStates[i].maxValue = v; saveConfig(); });
+      maxU.addEventListener('change', () => { gaugeStates[i].maxUnit = maxU.value; saveConfig(); });
     }
     updateAllControls();
   }
@@ -395,7 +398,7 @@
     opts.forEach((n, idx) => { const o = document.createElement('option'); o.value = idx; o.textContent = n; sel.appendChild(o); });
     if (gaugeStates[i].subIndex >= opts.length) gaugeStates[i].subIndex = 0;
     sel.value = gaugeStates[i].subIndex;
-    sel.onchange = () => { gaugeStates[i].subIndex = parseInt(sel.value); };
+    sel.onchange = () => { gaugeStates[i].subIndex = parseInt(sel.value); saveConfig(); };
   }
 
   // ── Max value row ──
@@ -467,7 +470,7 @@
   function updateGaugeVisibility() {
     for (let i = 0; i < 6; i++) { const c = document.getElementById(`gauge-${i}`); if (c) c.classList.toggle('hidden', i >= gaugeCount); }
   }
-  gaugeCountSel.addEventListener('change', () => { gaugeCount = parseInt(gaugeCountSel.value); updateGaugeVisibility(); });
+  gaugeCountSel.addEventListener('change', () => { gaugeCount = parseInt(gaugeCountSel.value); updateGaugeVisibility(); saveConfig(); });
 
   // ── Polling ──
   async function poll() {
@@ -494,17 +497,34 @@
     isActive = toggleActive.checked;
     grid.classList.toggle('paused', !isActive);
     if (isActive) startPolling(); else stopPolling();
+    saveConfig();
   });
 
   // ── Interval ──
   document.getElementById('interval-select').addEventListener('change', (e) => {
     pollingMs = parseInt(e.target.value);
+    invoke('set_interval', { ms: pollingMs });
     if (isActive) startPolling();
+    saveConfig();
   });
+
+  // ── Config save/load ──
+  let saveTimer = null;
+  function saveConfig() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      invoke('save_config', { config: {
+        active: isActive,
+        intervalMs: pollingMs,
+        gaugeCount: gaugeCount,
+        gauges: gaugeStates.map(s => ({ metricId: s.metricId, subIndex: s.subIndex, maxValue: s.maxValue, maxUnit: s.maxUnit })),
+        theme: document.body.classList.contains('light') ? 'light' : 'dark',
+      }});
+    }, 300);
+  }
 
   // ── Theme toggle ──
   const themeBtn = document.getElementById('theme-toggle');
-  if (localStorage.getItem('pointify-theme') === 'light') document.body.classList.add('light');
   function syncThemeIcon() {
     const light = document.body.classList.contains('light');
     themeBtn.querySelector('.icon-sun').classList.toggle('hidden', light);
@@ -512,20 +532,50 @@
   }
   syncThemeIcon();
   themeBtn.addEventListener('click', () => {
-    const light = document.body.classList.toggle('light');
-    localStorage.setItem('pointify-theme', light ? 'light' : 'dark');
+    document.body.classList.toggle('light');
     syncThemeIcon();
+    saveConfig();
   });
 
   // ── GitHub ──
   document.getElementById('github-link').addEventListener('click', (e) => {
     e.preventDefault();
-    window.__TAURI__.shell.open('https://github.com/nicejmp1/pointify');
+    window.__TAURI__.shell.open('https://github.com/luftaquila/pointify');
   });
 
   // ── Init ──
-  buildCards();
-  updateGaugeVisibility();
+  async function init() {
+    try {
+      const cfg = await invoke('load_config');
+      if (cfg) {
+        if (cfg.theme === 'light') document.body.classList.add('light');
+        else document.body.classList.remove('light');
+        syncThemeIcon();
+
+        isActive = cfg.active;
+        toggleActive.checked = isActive;
+        grid.classList.toggle('paused', !isActive);
+
+        pollingMs = cfg.intervalMs;
+        document.getElementById('interval-select').value = pollingMs;
+
+        gaugeCount = cfg.gaugeCount;
+        gaugeCountSel.value = gaugeCount;
+
+        if (cfg.gauges) {
+          cfg.gauges.forEach((g, i) => {
+            if (i < 6) gaugeStates[i] = { metricId: g.metricId, subIndex: g.subIndex, maxValue: g.maxValue, maxUnit: g.maxUnit };
+          });
+        }
+      }
+    } catch {}
+
+    buildCards();
+    updateGaugeVisibility();
+    invoke('set_interval', { ms: pollingMs });
+    fetchOptions();
+    startPolling();
+  }
 
   async function fetchOptions() {
     try {
@@ -534,8 +584,8 @@
       updateAllControls();
     } catch { setTimeout(fetchOptions, 500); }
   }
-  fetchOptions();
-  startPolling();
+
+  init();
 })();
 </script>
 </body>
