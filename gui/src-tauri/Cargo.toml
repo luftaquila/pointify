@@ -20,3 +20,6 @@ tauri-plugin-window-state = "2"
 
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
 nvml-wrapper = "0.11"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"

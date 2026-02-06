@@ -53,9 +53,14 @@ mod nvidia {
     }
 }
 
+#[cfg(target_os = "macos")]
+use super::apple_gpu;
+
 pub struct GpuMonitor {
     #[cfg(any(target_os = "windows", target_os = "linux"))]
     nvidia: Option<nvidia::NvidiaMonitor>,
+    #[cfg(target_os = "macos")]
+    apple: Option<apple_gpu::AppleGpuMonitor>,
 }
 
 impl GpuMonitor {
@@ -63,14 +68,23 @@ impl GpuMonitor {
         Self {
             #[cfg(any(target_os = "windows", target_os = "linux"))]
             nvidia: nvidia::NvidiaMonitor::try_new(),
+            #[cfg(target_os = "macos")]
+            apple: apple_gpu::AppleGpuMonitor::try_new(),
         }
     }
 
-    pub fn collect(&self) -> Vec<GpuMetrics> {
+    pub fn collect(&mut self) -> Vec<GpuMetrics> {
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             if let Some(nvidia) = &self.nvidia {
                 return nvidia.collect();
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(apple) = &mut self.apple {
+                return apple.collect();
             }
         }
 

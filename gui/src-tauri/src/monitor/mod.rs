@@ -2,6 +2,9 @@ pub mod gpu;
 pub mod system;
 pub mod types;
 
+#[cfg(target_os = "macos")]
+mod apple_gpu;
+
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -17,7 +20,7 @@ pub type SharedInterval = Arc<AtomicU64>;
 pub fn start_monitoring(state: SharedMetrics, interval: SharedInterval) {
     thread::spawn(move || {
         let mut sys_monitor = SystemMonitor::new();
-        let gpu_monitor = GpuMonitor::new();
+        let mut gpu_monitor = GpuMonitor::new();
 
         // First refresh is baseline; wait before collecting
         thread::sleep(Duration::from_millis(500));
