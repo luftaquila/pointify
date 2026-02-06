@@ -326,7 +326,9 @@
     { id: 'gpu_vram',        label: 'GPU VRAM Usage',   unit: '%',   sub: 'gpu' },
     { sep: true },
     { id: 'claude_5h',       label: 'Claude 5h Limit',   unit: '%',   sub: false },
+    { id: 'claude_5h_reset', label: 'Claude 5h Reset',  unit: '%',   sub: false },
     { id: 'claude_7d',       label: 'Claude 7d Limit',   unit: '%',   sub: false },
+    { id: 'claude_7d_reset', label: 'Claude 7d Reset',  unit: '%',   sub: false },
   ];
 
   let metricOptions = null;
@@ -478,12 +480,20 @@
 
   function updateAllControls() { for (let i = 0; i < 6; i++) { updateSubDropdown(i); updateMaxRow(i); } }
 
+  function claudeResetPct(resetAt, totalMin) {
+    if (!resetAt) return null;
+    const remaining = (new Date(resetAt) - Date.now()) / 60000;
+    return Math.max(0, Math.min(100, (1 - remaining / totalMin) * 100));
+  }
+
   // ── Extract value ──
   function extractValue(m, id, si) {
     // Claude metrics (separate data source)
     switch (id) {
       case 'claude_5h':        return claudeUsage?.five_hour?.utilization ?? null;
+      case 'claude_5h_reset':  return claudeResetPct(claudeUsage?.five_hour?.resets_at, 5 * 60);
       case 'claude_7d':        return claudeUsage?.seven_day?.utilization ?? null;
+      case 'claude_7d_reset':  return claudeResetPct(claudeUsage?.seven_day?.resets_at, 7 * 24 * 60);
       case 'claude_7d_sonnet': return claudeUsage?.seven_day_sonnet?.utilization ?? null;
     }
     // System metrics
