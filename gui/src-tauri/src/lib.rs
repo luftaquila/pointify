@@ -1,8 +1,11 @@
+mod claude;
 mod monitor;
 
+use std::collections::HashMap;
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -12,6 +15,7 @@ use tauri::{
     Manager, State, WindowEvent,
 };
 
+use claude::{ClaudeCache, ClaudeUsageEntry};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
 
@@ -71,6 +75,56 @@ fn save_config(app: tauri::AppHandle, config: Config) {
 }
 
 #[tauri::command]
+fn open_claude_env(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let path = claude::ensure_env_file(&dir);
+    opener::open(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_claude_usage(
+    cache: State<'_, ClaudeCache>,
+    app: tauri::AppHandle,
+) -> Result<Option<HashMap<String, ClaudeUsageEntry>>, String> {
+    let cache = cache.inner().clone();
+
+    // Return cached data if fresh (30s TTL)
+    {
+        let cached = cache.lock().map_err(|e| e.to_string())?;
+        if let Some((time, data)) = cached.as_ref() {
+            if time.elapsed() < std::time::Duration::from_secs(30) {
+                return Ok(Some(data.clone()));
+            }
+        }
+    }
+
+    // Load credentials
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let mut creds = match claude::load_credentials(&dir) {
+        Some(c) if !c.session_key.is_empty() && !c.cf_clearance.is_empty() => c,
+        _ => return Ok(None),
+    };
+
+    let client = reqwest::Client::new();
+
+    // Auto-fetch org_id if empty
+    if creds.org_id.is_empty() {
+        creds.org_id = claude::fetch_org_id(&client, &creds).await?;
+        claude::save_credentials(&dir, &creds);
+    }
+
+    let data = claude::fetch_usage(&client, &creds, &creds.org_id).await?;
+
+    // Update cache
+    {
+        let mut cached = cache.lock().map_err(|e| e.to_string())?;
+        *cached = Some((Instant::now(), data.clone()));
+    }
+
+    Ok(Some(data))
+}
+
+#[tauri::command]
 fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     let lock = state.lock().ok();
     let metrics = lock.as_ref().and_then(|l| l.as_ref());
@@ -101,12 +155,18 @@ fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
 pub fn run() {
     let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
+    let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(shared_metrics.clone())
         .manage(shared_interval.clone())
-        .invoke_handler(tauri::generate_handler![get_metrics, get_metric_options, set_interval, load_config, save_config])
+        .manage(claude_cache)
+        .invoke_handler(tauri::generate_handler![
+            get_metrics, get_metric_options, set_interval,
+            load_config, save_config,
+            open_claude_env, get_claude_usage
+        ])
         .setup(move |app| {
             // Build tray menu
             let show = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
@@ -160,6 +220,10 @@ pub fn run() {
 
             // Start hardware monitoring
             monitor::start_monitoring(shared_metrics, shared_interval);
+
+            // Start .claude.env file watcher
+            let claude_cache: ClaudeCache = app.state::<ClaudeCache>().inner().clone();
+            claude::start_watching(app.handle().clone(), claude_cache);
 
             Ok(())
         })
