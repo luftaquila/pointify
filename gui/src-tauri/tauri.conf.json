@@ -1,7 +1,7 @@
 {
   "productName": "Pointify",
   "version": "0.1.0",
-  "identifier": "io.luftaquila.pointify",
+  "identifier": "pointify",
   "build": {
     "frontendDist": "../src"
   },

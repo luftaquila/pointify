@@ -34,7 +34,7 @@ struct MetricOptions {
 #[serde(rename_all = "camelCase")]
 struct GaugeConfig {
     metric_id: String,
-    sub_index: usize,
+    sub_index: String,
     max_value: Option<f64>,
     max_unit: Option<String>,
 }

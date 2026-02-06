@@ -341,7 +341,7 @@
 
   // ── Gauge state ──
   function initGaugeState(def) {
-    return { metricId: def.id, subIndex: 0, maxValue: def.defaultMax || null, maxUnit: def.defaultMaxUnit || null };
+    return { metricId: def.id, subIndex: "", maxValue: def.defaultMax || null, maxUnit: def.defaultMaxUnit || null };
   }
   const gaugeStates = [];
   const METRIC_ITEMS = METRICS.filter(m => !m.sep);
@@ -460,10 +460,10 @@
     const opts = getSubOptions(METRIC_ITEMS.find(m => m.id === gaugeStates[i].metricId));
     if (!opts || !opts.length) { row.classList.add('hidden'); sel.innerHTML = ''; return; }
     row.classList.remove('hidden'); sel.innerHTML = '';
-    opts.forEach((n, idx) => { const o = document.createElement('option'); o.value = idx; o.textContent = n; sel.appendChild(o); });
-    if (gaugeStates[i].subIndex >= opts.length) gaugeStates[i].subIndex = 0;
+    opts.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+    if (!opts.includes(gaugeStates[i].subIndex)) gaugeStates[i].subIndex = opts[0];
     sel.value = gaugeStates[i].subIndex;
-    sel.onchange = () => { gaugeStates[i].subIndex = parseInt(sel.value); saveConfig(); };
+    sel.onchange = () => { gaugeStates[i].subIndex = sel.value; saveConfig(); };
   }
 
   // ── Max value row ──
@@ -498,25 +498,26 @@
     }
     // System metrics
     if (!m) return null;
+    const coreIdx = (typeof si === 'string' && si.startsWith('Core ')) ? parseInt(si.slice(5)) : null;
     switch (id) {
       case 'cpu_usage':      return m.cpu.usage;
-      case 'cpu_core_usage': return m.cpu.cores[si]?.usage ?? null;
+      case 'cpu_core_usage': return coreIdx != null ? (m.cpu.cores[coreIdx]?.usage ?? null) : null;
       case 'cpu_temp':       return m.cpu.temperature ?? null;
-      case 'cpu_core_freq':  return m.cpu.cores[si]?.frequency ?? null;
+      case 'cpu_core_freq':  return coreIdx != null ? (m.cpu.cores[coreIdx]?.frequency ?? null) : null;
       case 'mem_usage':      return m.memory.usage_percent;
       case 'swap_usage':     return m.swap.usage_percent;
-      case 'net_rx':    { const f = m.network.interfaces[si]; return f ? f.rx_bytes_per_sec : null; }
-      case 'net_tx':    { const f = m.network.interfaces[si]; return f ? f.tx_bytes_per_sec : null; }
-      case 'net_rxtx':  { const f = m.network.interfaces[si]; return f ? f.rx_bytes_per_sec + f.tx_bytes_per_sec : null; }
-      case 'disk_usage':{ const d = m.disk.disks[si]; return d ? d.usage_percent : null; }
-      case 'disk_read': { const d = m.disk.disks[si]; return d ? d.read_bytes_per_sec : null; }
-      case 'disk_write':{ const d = m.disk.disks[si]; return d ? d.write_bytes_per_sec : null; }
-      case 'disk_rw':   { const d = m.disk.disks[si]; return d ? d.read_bytes_per_sec + d.write_bytes_per_sec : null; }
-      case 'gpu_util':  return m.gpus[si]?.utilization ?? null;
-      case 'gpu_temp':  return m.gpus[si]?.temperature ?? null;
-      case 'gpu_vram':  { const g = m.gpus[si]; return (g && g.memory_total != null && g.memory_used != null) ? (g.memory_used / g.memory_total) * 100 : null; }
-      case 'gpu_clock': return m.gpus[si]?.clock_mhz ?? null;
-      case 'gpu_power': return m.gpus[si]?.power_watts ?? null;
+      case 'net_rx':    { const f = m.network.interfaces.find(i => i.name === si); return f ? f.rx_bytes_per_sec : null; }
+      case 'net_tx':    { const f = m.network.interfaces.find(i => i.name === si); return f ? f.tx_bytes_per_sec : null; }
+      case 'net_rxtx':  { const f = m.network.interfaces.find(i => i.name === si); return f ? f.rx_bytes_per_sec + f.tx_bytes_per_sec : null; }
+      case 'disk_usage':{ const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.usage_percent : null; }
+      case 'disk_read': { const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.read_bytes_per_sec : null; }
+      case 'disk_write':{ const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.write_bytes_per_sec : null; }
+      case 'disk_rw':   { const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.read_bytes_per_sec + d.write_bytes_per_sec : null; }
+      case 'gpu_util':  { const g = m.gpus.find(g => g.name === si); return g?.utilization ?? null; }
+      case 'gpu_temp':  { const g = m.gpus.find(g => g.name === si); return g?.temperature ?? null; }
+      case 'gpu_vram':  { const g = m.gpus.find(g => g.name === si); return (g && g.memory_total != null && g.memory_used != null) ? (g.memory_used / g.memory_total) * 100 : null; }
+      case 'gpu_clock': { const g = m.gpus.find(g => g.name === si); return g?.clock_mhz ?? null; }
+      case 'gpu_power': { const g = m.gpus.find(g => g.name === si); return g?.power_watts ?? null; }
       default:          return null;
     }
   }
