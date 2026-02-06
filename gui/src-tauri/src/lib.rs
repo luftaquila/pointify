@@ -1,16 +1,68 @@
 mod monitor;
 
+use std::sync::{Arc, Mutex};
+
+use serde::Serialize;
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    Manager, State, WindowEvent,
 };
 
+use monitor::types::SystemMetrics;
+use monitor::SharedMetrics;
+
+#[derive(Serialize)]
+struct MetricOptions {
+    cpu_core_count: usize,
+    network_interfaces: Vec<String>,
+    disk_names: Vec<String>,
+    gpu_count: usize,
+    gpu_names: Vec<String>,
+}
+
+#[tauri::command]
+fn get_metrics(state: State<SharedMetrics>) -> Option<SystemMetrics> {
+    state.lock().ok().and_then(|lock| lock.clone())
+}
+
+#[tauri::command]
+fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
+    let lock = state.lock().ok();
+    let metrics = lock.as_ref().and_then(|l| l.as_ref());
+
+    match metrics {
+        Some(m) => MetricOptions {
+            cpu_core_count: m.cpu.cores.len(),
+            network_interfaces: m.network.interfaces.iter().map(|i| i.name.clone()).collect(),
+            disk_names: m
+                .disk
+                .disks
+                .iter()
+                .map(|d| format!("{} ({})", d.name, d.mount_point))
+                .collect(),
+            gpu_count: m.gpus.len(),
+            gpu_names: m.gpus.iter().map(|g| g.name.clone()).collect(),
+        },
+        None => MetricOptions {
+            cpu_core_count: 0,
+            network_interfaces: vec![],
+            disk_names: vec![],
+            gpu_count: 0,
+            gpu_names: vec![],
+        },
+    }
+}
+
 pub fn run() {
+    let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .setup(|app| {
+        .manage(shared_metrics.clone())
+        .invoke_handler(tauri::generate_handler![get_metrics, get_metric_options])
+        .setup(move |app| {
             // Build tray menu
             let show = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Hide Window", true, None::<&str>)?;
@@ -62,7 +114,7 @@ pub fn run() {
                 .build(app)?;
 
             // Start hardware monitoring
-            monitor::start_monitoring();
+            monitor::start_monitoring(shared_metrics);
 
             Ok(())
         })
