@@ -16,6 +16,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 notify = "7"
 opener = "0.7"
 serialport = "4"
+tauri-plugin-window-state = "2"
 
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
 nvml-wrapper = "0.10"

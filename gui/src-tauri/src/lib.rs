@@ -43,6 +43,8 @@ struct GaugeConfig {
 #[serde(rename_all = "camelCase")]
 struct Config {
     active: bool,
+    #[serde(default = "default_voltage")]
+    voltage: String,
     interval_ms: u64,
     gauge_count: usize,
     gauges: Vec<GaugeConfig>,
@@ -51,6 +53,7 @@ struct Config {
     theme: String,
 }
 
+fn default_voltage() -> String { "3".to_string() }
 fn default_claude_refresh() -> u64 { 120 }
 
 #[tauri::command]
@@ -197,6 +200,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .manage(shared_metrics.clone())
         .manage(shared_interval.clone())
         .manage(claude_cache)

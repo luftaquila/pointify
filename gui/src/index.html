@@ -59,7 +59,7 @@
 
     .sidebar-section { padding: 14px; border-bottom: 1px solid var(--border); }
     .sidebar-section h2 {
-      font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
+      font-size: 12px; text-transform: uppercase; letter-spacing: 2px;
       color: var(--muted); margin-bottom: 12px;
     }
 
@@ -68,12 +68,12 @@
       margin-bottom: 8px;
     }
     .setting-row:last-child { margin-bottom: 0; }
-    .setting-row span { font-size: 12px; color: var(--text); }
+    .setting-row span { font-size: 14px; color: var(--text); }
 
     .sidebar-section select {
       height: 24px; padding: 1px 20px 1px 6px;
       background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
-      color: var(--accent); font-family: inherit; font-size: 11px;
+      color: var(--accent); font-family: inherit; font-size: 13px;
       cursor: pointer; appearance: none; -webkit-appearance: none;
       background-image: var(--arrow); background-repeat: no-repeat; background-position: right 5px center;
       transition: background .3s, border-color .3s, color .3s;
@@ -117,52 +117,51 @@
 
     /* ── Gauge grid ── */
     .grid {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 350px));
+      gap: 14px; justify-content: center;
     }
     .grid.paused .gauge-card { opacity: .45; }
 
     .gauge-card {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
-      padding: 6px 10px 10px;
+      padding: 8px 10px 12px;
       display: flex; flex-direction: column; align-items: center;
       box-shadow: var(--shadow);
       transition: background .3s, border-color .3s, box-shadow .3s, opacity .3s;
     }
 
-    .gauge-svg { width: 100%; max-width: 240px; }
+    .gauge-svg { width: 100%; }
 
     /* ── SVG gauge ── */
     .gauge-track { fill: none; stroke: var(--track); stroke-width: 6; stroke-linecap: round; transition: stroke .3s; }
     .gauge-tick { stroke: var(--tick); stroke-width: 1; transition: stroke .3s; }
+    .gauge-tick-mid { stroke: var(--tick); stroke-width: 1; transition: stroke .3s; }
     .gauge-tick-major { stroke: var(--tick-hi); stroke-width: 1.5; transition: stroke .3s; }
-    .gauge-tick-label { fill: var(--tick-lbl); font-size: 10px; font-family: 'Courier New', monospace; transition: fill .3s; }
+    .gauge-tick-label { fill: var(--tick-lbl); font-size: 12px; font-family: 'Courier New', monospace; transition: fill .3s; }
 
     .gauge-needle {
       fill: var(--needle);
       filter: drop-shadow(0 0 3px rgba(192,57,43,0.4)) drop-shadow(0 1px 2px rgba(0,0,0,0.5));
       transition: transform 0.6s cubic-bezier(0.3, 1.2, 0.5, 1), fill .3s;
-      transform-origin: 100px 125px;
+      transform-origin: 100px 110px;
     }
     .gauge-pivot-bg { fill: var(--pivot-bg); transition: fill .3s; }
     .gauge-pivot { fill: var(--pivot); stroke: var(--pivot-str); stroke-width: 1.5; transition: fill .3s, stroke .3s; }
 
     .gauge-display { fill: var(--bg-display); stroke: var(--border-dim); stroke-width: .5; transition: fill .3s, stroke .3s; }
-    .gauge-value { fill: var(--accent-hi); font-size: 15px; font-family: 'Courier New', monospace; font-weight: bold; transition: fill .3s; }
-    .gauge-unit { fill: var(--muted); font-size: 10px; font-family: 'Courier New', monospace; transition: fill .3s; }
-    .gauge-label-text { fill: var(--dim); font-size: 10px; font-family: 'Courier New', monospace; transition: fill .3s; }
-
+    .gauge-value { fill: var(--accent-hi); font-size: 18px; font-family: 'Courier New', monospace; font-weight: bold; transition: fill .3s; }
+    .gauge-unit { fill: var(--muted); font-size: 12px; font-family: 'Courier New', monospace; transition: fill .3s; }
     /* ── Gauge controls ── */
     .gauge-selectors {
       display: flex; flex-direction: column; justify-content: center;
-      gap: 3px; margin-top: 6px; width: 100%; min-height: 84px;
+      gap: 3px; margin-top: 14px; width: 100%; flex: 1;
     }
 
-    .ctrl-row { display: flex; align-items: center; gap: 4px; min-height: 26px; }
+    .ctrl-row { display: flex; align-items: center; gap: 8px; min-height: 26px; }
 
     .ctrl-row label {
-      font-size: 11px; color: var(--muted);
-      flex-shrink: 0; width: 42px; text-align: right;
+      font-size: 13px; color: var(--muted);
+      flex-shrink: 0; width: 46px; text-align: right;
       transition: color .3s;
     }
 
@@ -170,7 +169,7 @@
       flex: 1; min-width: 0; height: auto; min-height: 26px;
       padding: 4px 20px 4px 8px;
       background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
-      color: var(--accent); font-family: inherit; font-size: 12px;
+      color: var(--accent); font-family: inherit; font-size: 14px;
       cursor: pointer; appearance: none; -webkit-appearance: none;
       background-image: var(--arrow); background-repeat: no-repeat; background-position: right 7px center;
       white-space: normal; text-align: center;
@@ -182,7 +181,7 @@
     .ctrl-row input[type="number"] {
       flex: 1; min-width: 0; height: 26px; padding: 2px 8px;
       background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
-      color: var(--accent); font-family: inherit; font-size: 12px;
+      color: var(--accent); font-family: inherit; font-size: 14px;
       transition: background .3s, border-color .3s, color .3s;
     }
     .ctrl-row input[type="number"]:focus { outline: 1px solid var(--accent); }
@@ -208,6 +207,13 @@
             <input type="checkbox" id="toggle-active" checked>
             <span class="toggle-track"></span>
           </label>
+        </div>
+        <div class="setting-row">
+          <span>Voltage</span>
+          <select id="voltage-select">
+            <option value="3" selected>3V</option>
+            <option value="5">5V</option>
+          </select>
         </div>
         <div class="setting-row">
           <span>Interval</span>
@@ -243,13 +249,13 @@
         <div class="setting-row">
           <span>Refresh</span>
           <select id="claude-refresh-select">
-            <option value="30">30 s</option>
-            <option value="60">1 m</option>
-            <option value="120" selected>2 m</option>
-            <option value="300">5 m</option>
-            <option value="600">10 m</option>
-            <option value="1800">30 m</option>
-            <option value="3600">1 h</option>
+            <option value="30">30s</option>
+            <option value="60">1m</option>
+            <option value="120" selected>2m</option>
+            <option value="300">5m</option>
+            <option value="600">10m</option>
+            <option value="1800">30m</option>
+            <option value="3600">1h</option>
           </select>
         </div>
         <button id="open-claude-env" style="
@@ -291,34 +297,41 @@
   const { invoke } = window.__TAURI__.core;
 
   // ── Constants ──
-  const ARC_START = -80, ARC_END = 80, ARC_RANGE = ARC_END - ARC_START;
-  const CX = 100, CY = 125, R = 82;
+  const ARC_START = -45, ARC_END = 45, ARC_RANGE = ARC_END - ARC_START;
+  const CX = 100, CY = 120, R = 75;
 
   // ── Metric definitions ──
   const METRICS = [
-    { id: 'cpu_usage',       label: 'CPU Usage',    unit: '%',   sub: false },
-    { id: 'cpu_core_usage',  label: 'Core Usage',   unit: '%',   sub: 'core' },
-    { id: 'cpu_temp',        label: 'CPU Temp',     unit: '°C',  sub: false,  maxUnits: ['°C'],                   defaultMax: 110,  defaultMaxUnit: '°C' },
-    { id: 'cpu_core_freq',   label: 'Core Freq',    unit: 'MHz', sub: 'core', maxUnits: ['MHz', 'GHz'],           defaultMax: 5,    defaultMaxUnit: 'GHz' },
+    { id: 'cpu_usage',       label: 'CPU Utilization',    unit: '%',   sub: false },
+    { id: 'cpu_core_usage',  label: 'Core Utilization',   unit: '%',   sub: 'core' },
+    { id: 'cpu_temp',        label: 'CPU Temperature',     unit: '°C',  sub: false,  maxUnits: ['°C'],                   defaultMax: 100,  defaultMaxUnit: '°C' },
+    { id: 'cpu_core_freq',   label: 'Core Frequency',    unit: 'MHz', sub: 'core', maxUnits: ['MHz', 'GHz'],           defaultMax: 5,    defaultMaxUnit: 'GHz' },
+    { sep: true },
     { id: 'mem_usage',       label: 'Memory Usage', unit: '%',   sub: false },
     { id: 'swap_usage',      label: 'Swap Usage',   unit: '%',   sub: false },
-    { id: 'net_rx',          label: 'Net RX',       unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100,  defaultMaxUnit: 'MB/s' },
-    { id: 'net_tx',          label: 'Net TX',       unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100,  defaultMaxUnit: 'MB/s' },
+    { sep: true },
+    { id: 'net_rx',          label: 'Network RX Speed',       unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100,  defaultMaxUnit: 'MB/s' },
+    { id: 'net_tx',          label: 'Network TX Speed',       unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100,  defaultMaxUnit: 'MB/s' },
+    { id: 'net_rxtx',        label: 'Network RX/TX Speed',    unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 200,  defaultMaxUnit: 'MB/s' },
+    { sep: true },
     { id: 'disk_usage',      label: 'Disk Usage',   unit: '%',   sub: 'disk' },
-    { id: 'disk_read',       label: 'Disk Read',    unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500,  defaultMaxUnit: 'MB/s' },
-    { id: 'disk_write',      label: 'Disk Write',   unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500,  defaultMaxUnit: 'MB/s' },
-    { id: 'gpu_util',        label: 'GPU Util',     unit: '%',   sub: 'gpu' },
-    { id: 'gpu_temp',        label: 'GPU Temp',     unit: '°C',  sub: 'gpu',  maxUnits: ['°C'],                   defaultMax: 110,  defaultMaxUnit: '°C' },
-    { id: 'gpu_vram',        label: 'VRAM Usage',   unit: '%',   sub: 'gpu' },
+    { id: 'disk_read',       label: 'Disk Read Speed',    unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500,  defaultMaxUnit: 'MB/s' },
+    { id: 'disk_write',      label: 'Disk Write Speed',   unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500,  defaultMaxUnit: 'MB/s' },
+    { id: 'disk_rw',         label: 'Disk R/W Speed',   unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 1000, defaultMaxUnit: 'MB/s' },
+    { sep: true },
+    { id: 'gpu_util',        label: 'GPU Utilization',     unit: '%',   sub: 'gpu' },
+    { id: 'gpu_temp',        label: 'GPU Temperature',     unit: '°C',  sub: 'gpu',  maxUnits: ['°C'],                   defaultMax: 100,  defaultMaxUnit: '°C' },
     { id: 'gpu_clock',       label: 'GPU Clock',    unit: 'MHz', sub: 'gpu',  maxUnits: ['MHz', 'GHz'],           defaultMax: 3,    defaultMaxUnit: 'GHz' },
     { id: 'gpu_power',       label: 'GPU Power',    unit: 'W',   sub: 'gpu',  maxUnits: ['W'],                    defaultMax: 500,  defaultMaxUnit: 'W' },
-    { id: 'claude_5h',       label: 'Claude 5H',   unit: '%',   sub: false },
-    { id: 'claude_7d',       label: 'Claude 7D',   unit: '%',   sub: false },
-{ id: 'claude_7d_sonnet',label: 'Claude Sonnet', unit: '%',  sub: false },
+    { id: 'gpu_vram',        label: 'GPU VRAM Usage',   unit: '%',   sub: 'gpu' },
+    { sep: true },
+    { id: 'claude_5h',       label: 'Claude 5h Limit',   unit: '%',   sub: false },
+    { id: 'claude_7d',       label: 'Claude 7d Limit',   unit: '%',   sub: false },
   ];
 
   let metricOptions = null;
   let claudeUsage = null;
+  let voltage = '3';
   let gaugeCount = 3;
   let isActive = true;
   let pollingMs = 200;
@@ -329,7 +342,8 @@
     return { metricId: def.id, subIndex: 0, maxValue: def.defaultMax || null, maxUnit: def.defaultMaxUnit || null };
   }
   const gaugeStates = [];
-  for (let i = 0; i < 6; i++) gaugeStates.push(initGaugeState(METRICS[i]));
+  const METRIC_ITEMS = METRICS.filter(m => !m.sep);
+  for (let i = 0; i < 6; i++) gaugeStates.push(initGaugeState(METRIC_ITEMS[i]));
 
   // ── Unit multipliers ──
   function unitMultiplier(u) {
@@ -340,32 +354,51 @@
     }
   }
 
+  const PY = 110; // needle pivot Y
+  function needleAngle(pct) {
+    const arcRad = (ARC_START + pct * ARC_RANGE) * Math.PI / 180;
+    return Math.atan2(R * Math.sin(arcRad), PY - CY + R * Math.cos(arcRad)) * 180 / Math.PI;
+  }
+
   // ── SVG gauge template ──
+  const VOLTAGE_LABELS = { '3': [0, 33, 66, 100], '5': [0, 20, 40, 60, 80, 100] };
+
   function createGaugeSVG() {
     const rad = a => a * Math.PI / 180;
     const ax1 = CX + R * Math.sin(rad(ARC_START)), ay1 = CY - R * Math.cos(rad(ARC_START));
     const ax2 = CX + R * Math.sin(rad(ARC_END)),   ay2 = CY - R * Math.cos(rad(ARC_END));
+    const labelPcts = VOLTAGE_LABELS[voltage] || VOLTAGE_LABELS['3'];
 
     let ticks = '';
-    for (let pct = 0; pct <= 100; pct += 5) {
-      const a = ARC_START + (pct / 100) * ARC_RANGE, r = rad(a);
-      const major = pct % 25 === 0, r1 = R - (major ? 14 : 8), r2 = R - 1;
-      ticks += `<line x1="${CX+r1*Math.sin(r)}" y1="${CY-r1*Math.cos(r)}" x2="${CX+r2*Math.sin(r)}" y2="${CY-r2*Math.cos(r)}" class="${major?'gauge-tick-major':'gauge-tick'}"/>`;
-      if (major) {
-        const rl = R - 22;
-        ticks += `<text x="${CX+rl*Math.sin(r)}" y="${CY-rl*Math.cos(r)}" class="gauge-tick-label" text-anchor="middle" dominant-baseline="central">${pct}</text>`;
+    const divs = voltage === '3' ? 10 : 5;
+    // minor ticks between each pair of major ticks
+    for (let i = 0; i < labelPcts.length - 1; i++) {
+      const seg0 = labelPcts[i], seg1 = labelPcts[i + 1], step = (seg1 - seg0) / divs;
+      for (let j = 1; j < divs; j++) {
+        const pct = seg0 + j * step;
+        const a = ARC_START + (pct / 100) * ARC_RANGE, r = rad(a);
+        const isMid = voltage === '3' && j === 5;
+        const outerR = isMid ? R + 11 : R + 7;
+        ticks += `<line x1="${CX+(R+1)*Math.sin(r)}" y1="${CY-(R+1)*Math.cos(r)}" x2="${CX+outerR*Math.sin(r)}" y2="${CY-outerR*Math.cos(r)}" class="${isMid ? 'gauge-tick-mid' : 'gauge-tick'}"/>`;
       }
+    }
+    // major ticks with labels
+    for (let i = 0; i < labelPcts.length; i++) {
+      const pct = labelPcts[i];
+      const a = ARC_START + (pct / 100) * ARC_RANGE, r = rad(a);
+      ticks += `<line x1="${CX+(R+1)*Math.sin(r)}" y1="${CY-(R+1)*Math.cos(r)}" x2="${CX+(R+14)*Math.sin(r)}" y2="${CY-(R+14)*Math.cos(r)}" class="gauge-tick-major"/>`;
+      const rl = R + 22;
+      ticks += `<text x="${CX+rl*Math.sin(r)}" y="${CY-rl*Math.cos(r)}" class="gauge-tick-label" text-anchor="middle" dominant-baseline="central">${i}</text>`;
     }
     return `<svg class="gauge-svg" viewBox="0 0 200 160">
       <path d="M ${ax1} ${ay1} A ${R} ${R} 0 0 1 ${ax2} ${ay2}" class="gauge-track"/>
       ${ticks}
-      <text x="${CX}" y="96" class="gauge-label-text" text-anchor="middle" data-label></text>
-      <polygon class="gauge-needle" data-needle points="99.5,53 100.5,53 102,123 98,123" style="transform:rotate(${ARC_START}deg)"/>
-      <circle cx="${CX}" cy="${CY}" r="6" class="gauge-pivot-bg"/>
-      <circle cx="${CX}" cy="${CY}" r="4" class="gauge-pivot"/>
+      <polygon class="gauge-needle" data-needle points="99.5,50 100.5,50 101.5,108 98.5,108" style="transform:rotate(${needleAngle(0)}deg)"/>
+      <circle cx="${CX}" cy="110" r="6" class="gauge-pivot-bg"/>
+      <circle cx="${CX}" cy="110" r="4" class="gauge-pivot"/>
       <rect x="63" y="132" width="74" height="26" rx="3" class="gauge-display"/>
-      <text x="${CX}" y="147" class="gauge-value" text-anchor="middle" data-value>--</text>
-      <text x="${CX}" y="156" class="gauge-unit" text-anchor="middle" data-unit></text>
+      <text x="${CX}" y="150" class="gauge-value" text-anchor="middle" data-value>--</text>
+      <text x="140" y="150" class="gauge-unit" text-anchor="start" data-unit></text>
     </svg>`;
   }
 
@@ -387,14 +420,15 @@
       grid.appendChild(card);
 
       const metricSel = card.querySelector(`[data-metric-select="${i}"]`);
-      METRICS.forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.label; metricSel.appendChild(o); });
+      METRICS.forEach(m => {
+        if (m.sep) { const o = document.createElement('option'); o.disabled = true; o.textContent = '──────────'; metricSel.appendChild(o); return; }
+        const o = document.createElement('option'); o.value = m.id; o.textContent = m.label; metricSel.appendChild(o);
+      });
       metricSel.value = gaugeStates[i].metricId;
-      card.querySelector('[data-label]').textContent = METRICS.find(m => m.id === gaugeStates[i].metricId).label;
 
       metricSel.addEventListener('change', () => {
-        const def = METRICS.find(m => m.id === metricSel.value);
+        const def = METRIC_ITEMS.find(m => m.id === metricSel.value);
         gaugeStates[i] = initGaugeState(def);
-        card.querySelector('[data-label]').textContent = def.label;
         updateSubDropdown(i); updateMaxRow(i); saveConfig();
       });
 
@@ -421,7 +455,7 @@
   function updateSubDropdown(i) {
     const card = document.getElementById(`gauge-${i}`); if (!card) return;
     const row = card.querySelector(`[data-sub-row="${i}"]`), sel = card.querySelector(`[data-sub-select="${i}"]`);
-    const opts = getSubOptions(METRICS.find(m => m.id === gaugeStates[i].metricId));
+    const opts = getSubOptions(METRIC_ITEMS.find(m => m.id === gaugeStates[i].metricId));
     if (!opts || !opts.length) { row.classList.add('hidden'); sel.innerHTML = ''; return; }
     row.classList.remove('hidden'); sel.innerHTML = '';
     opts.forEach((n, idx) => { const o = document.createElement('option'); o.value = idx; o.textContent = n; sel.appendChild(o); });
@@ -435,7 +469,7 @@
     const card = document.getElementById(`gauge-${i}`); if (!card) return;
     const row = card.querySelector(`[data-max-row="${i}"]`);
     const inp = card.querySelector(`[data-max-value="${i}"]`), usel = card.querySelector(`[data-max-unit="${i}"]`);
-    const def = METRICS.find(m => m.id === gaugeStates[i].metricId);
+    const def = METRIC_ITEMS.find(m => m.id === gaugeStates[i].metricId);
     if (!def.maxUnits) { row.classList.add('hidden'); return; }
     row.classList.remove('hidden'); usel.innerHTML = '';
     def.maxUnits.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; usel.appendChild(o); });
@@ -463,9 +497,11 @@
       case 'swap_usage':     return m.swap.usage_percent;
       case 'net_rx':    { const f = m.network.interfaces[si]; return f ? f.rx_bytes_per_sec : null; }
       case 'net_tx':    { const f = m.network.interfaces[si]; return f ? f.tx_bytes_per_sec : null; }
+      case 'net_rxtx':  { const f = m.network.interfaces[si]; return f ? f.rx_bytes_per_sec + f.tx_bytes_per_sec : null; }
       case 'disk_usage':{ const d = m.disk.disks[si]; return d ? d.usage_percent : null; }
       case 'disk_read': { const d = m.disk.disks[si]; return d ? d.read_bytes_per_sec : null; }
       case 'disk_write':{ const d = m.disk.disks[si]; return d ? d.write_bytes_per_sec : null; }
+      case 'disk_rw':   { const d = m.disk.disks[si]; return d ? d.read_bytes_per_sec + d.write_bytes_per_sec : null; }
       case 'gpu_util':  return m.gpus[si]?.utilization ?? null;
       case 'gpu_temp':  return m.gpus[si]?.temperature ?? null;
       case 'gpu_vram':  { const g = m.gpus[si]; return (g && g.memory_total != null && g.memory_used != null) ? (g.memory_used / g.memory_total) * 100 : null; }
@@ -492,10 +528,10 @@
   function updateGauge(gi, metrics) {
     const card = document.getElementById(`gauge-${gi}`);
     if (!card || card.classList.contains('hidden')) return;
-    const st = gaugeStates[gi], def = METRICS.find(m => m.id === st.metricId);
+    const st = gaugeStates[gi], def = METRIC_ITEMS.find(m => m.id === st.metricId);
     const value = extractValue(metrics, st.metricId, st.subIndex);
     const pct = value != null ? Math.min(Math.max(value / getEffectiveMax(gi, def), 0), 1) : 0;
-    card.querySelector('[data-needle]').style.transform = `rotate(${ARC_START + pct * ARC_RANGE}deg)`;
+    card.querySelector('[data-needle]').style.transform = `rotate(${needleAngle(pct)}deg)`;
     const fmt = formatDisplay(value, def, st);
     card.querySelector('[data-value]').textContent = fmt.text;
     card.querySelector('[data-unit]').textContent = fmt.unit;
@@ -540,6 +576,15 @@
     saveConfig();
   });
 
+  // ── Voltage ──
+  const voltageSel = document.getElementById('voltage-select');
+  voltageSel.addEventListener('change', () => {
+    voltage = voltageSel.value;
+    buildCards();
+    updateGaugeVisibility();
+    saveConfig();
+  });
+
   // ── Interval ──
   document.getElementById('interval-select').addEventListener('change', (e) => {
     pollingMs = parseInt(e.target.value);
@@ -571,6 +616,7 @@
     saveTimer = setTimeout(() => {
       invoke('save_config', { config: {
         active: isActive,
+        voltage: voltage,
         intervalMs: pollingMs,
         gaugeCount: gaugeCount,
         gauges: gaugeStates.map(s => ({ metricId: s.metricId, subIndex: s.subIndex, maxValue: s.maxValue, maxUnit: s.maxUnit })),
@@ -627,6 +673,11 @@
         toggleActive.checked = isActive;
         grid.classList.toggle('paused', !isActive);
 
+        if (cfg.voltage) {
+          voltage = cfg.voltage;
+          voltageSel.value = voltage;
+        }
+
         pollingMs = cfg.intervalMs;
         document.getElementById('interval-select').value = pollingMs;
 
@@ -641,10 +692,10 @@
         if (cfg.gauges) {
           cfg.gauges.forEach((g, i) => {
             if (i < 6) {
-              const valid = METRICS.some(m => m.id === g.metricId);
+              const valid = METRIC_ITEMS.some(m => m.id === g.metricId);
               gaugeStates[i] = valid
                 ? { metricId: g.metricId, subIndex: g.subIndex, maxValue: g.maxValue, maxUnit: g.maxUnit }
-                : initGaugeState(METRICS[i % METRICS.length]);
+                : initGaugeState(METRIC_ITEMS[i % METRIC_ITEMS.length]);
             }
           });
         }
@@ -658,11 +709,13 @@
     startPolling();
   }
 
+  let optionsRetries = 0;
   async function fetchOptions() {
     try {
       metricOptions = await invoke('get_metric_options');
       if (metricOptions.cpu_core_count === 0) { setTimeout(fetchOptions, 500); return; }
       updateAllControls();
+      if (optionsRetries++ < 5) { setTimeout(fetchOptions, 1000); return; }
     } catch { setTimeout(fetchOptions, 500); }
   }
 
