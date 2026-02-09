@@ -116,6 +116,18 @@ fn set_claude_ttl(ttl: State<'_, ClaudeTtl>, secs: u64) {
 fn open_claude_env(app: tauri::AppHandle) -> Result<(), String> {
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let path = claude::ensure_env_file(&dir);
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-t")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
     opener::open(&path).map_err(|e| e.to_string())
 }
 
