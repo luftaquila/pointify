@@ -53,8 +53,12 @@ struct Config {
     theme: String,
 }
 
-fn default_voltage() -> String { "3".to_string() }
-fn default_claude_refresh() -> u64 { 120 }
+fn default_voltage() -> String {
+    "3".to_string()
+}
+fn default_claude_refresh() -> u64 {
+    120
+}
 
 #[tauri::command]
 fn get_metrics(state: State<SharedMetrics>) -> Option<SystemMetrics> {
@@ -96,7 +100,9 @@ fn list_serial_ports() -> Vec<SerialPortInfo> {
         .into_iter()
         .filter_map(|p| {
             if let serialport::SerialPortType::UsbPort(usb) = &p.port_type {
-                if !(usb.vid == 512 && usb.pid == 731) { return None; }
+                if !(usb.vid == 512 && usb.pid == 731) {
+                    return None;
+                }
                 return Some(SerialPortInfo {
                     port: p.port_name,
                     product: usb.product.clone().unwrap_or_default(),
@@ -184,7 +190,12 @@ fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     match metrics {
         Some(m) => MetricOptions {
             cpu_core_count: m.cpu.cores.len(),
-            network_interfaces: m.network.interfaces.iter().map(|i| i.name.clone()).collect(),
+            network_interfaces: m
+                .network
+                .interfaces
+                .iter()
+                .map(|i| i.name.clone())
+                .collect(),
             disk_names: m
                 .disk
                 .disks
@@ -218,9 +229,15 @@ pub fn run() {
         .manage(claude_cache)
         .manage(claude_ttl)
         .invoke_handler(tauri::generate_handler![
-            get_metrics, get_metric_options, set_interval, list_serial_ports,
-            load_config, save_config,
-            open_claude_env, set_claude_ttl, get_claude_usage
+            get_metrics,
+            get_metric_options,
+            set_interval,
+            list_serial_ports,
+            load_config,
+            save_config,
+            open_claude_env,
+            set_claude_ttl,
+            get_claude_usage
         ])
         .setup(move |app| {
             // Build tray menu

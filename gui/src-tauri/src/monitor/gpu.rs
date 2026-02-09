@@ -32,10 +32,7 @@ mod nvidia {
                     let clock_mhz = device
                         .clock_info(nvml_wrapper::enum_wrappers::device::Clock::Graphics)
                         .ok();
-                    let power_watts = device
-                        .power_usage()
-                        .ok()
-                        .map(|mw| mw as f64 / 1000.0);
+                    let power_watts = device.power_usage().ok().map(|mw| mw as f64 / 1000.0);
 
                     gpus.push(GpuMetrics {
                         name,

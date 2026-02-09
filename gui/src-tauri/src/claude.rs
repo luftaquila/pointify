@@ -25,7 +25,8 @@ pub struct ClaudeUsageEntry {
 
 pub type ClaudeCache = Arc<Mutex<Option<(Instant, HashMap<String, ClaudeUsageEntry>)>>>;
 
-const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0";
+const USER_AGENT: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0";
 
 fn env_path(config_dir: &Path) -> PathBuf {
     config_dir.join(".claude.env")
@@ -107,10 +108,8 @@ pub fn start_watching(app: tauri::AppHandle, cache: ClaudeCache) {
         for result in rx {
             match result {
                 Ok(event) => {
-                    let dominated = matches!(
-                        event.kind,
-                        EventKind::Modify(_) | EventKind::Create(_)
-                    );
+                    let dominated =
+                        matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_));
                     if dominated && event.paths.iter().any(|p| p == &env_file) {
                         if let Ok(mut c) = cache.lock() {
                             *c = None;

@@ -50,7 +50,15 @@ impl SystemMonitor {
         }
     }
 
-    pub fn collect(&mut self) -> (CpuMetrics, MemoryMetrics, SwapMetrics, NetworkMetrics, DiskMetrics) {
+    pub fn collect(
+        &mut self,
+    ) -> (
+        CpuMetrics,
+        MemoryMetrics,
+        SwapMetrics,
+        NetworkMetrics,
+        DiskMetrics,
+    ) {
         let elapsed = self.last_update.elapsed().as_secs_f64();
         self.last_update = Instant::now();
 

@@ -10,12 +10,12 @@ use std::{
 
 use core_foundation::{
     array::{CFArrayGetCount, CFArrayGetValueAtIndex, CFArrayRef},
-    base::{CFAllocatorRef, CFRange, CFRelease, CFTypeRef, kCFAllocatorDefault, kCFAllocatorNull},
+    base::{kCFAllocatorDefault, kCFAllocatorNull, CFAllocatorRef, CFRange, CFRelease, CFTypeRef},
     data::{CFDataGetBytes, CFDataGetLength, CFDataRef},
     dictionary::{
         kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionaryCreate,
-        CFDictionaryCreateMutableCopy, CFDictionaryGetCount, CFDictionaryGetValue,
-        CFDictionaryRef, CFMutableDictionaryRef,
+        CFDictionaryCreateMutableCopy, CFDictionaryGetCount, CFDictionaryGetValue, CFDictionaryRef,
+        CFMutableDictionaryRef,
     },
     number::{kCFNumberSInt32Type, CFNumberCreate, CFNumberRef},
     string::{
@@ -30,7 +30,13 @@ type CVoidRef = *const std::ffi::c_void;
 // ─── CF Utilities ───────────────────────────────────────────────────────────
 
 fn cfnum(val: i32) -> CFNumberRef {
-    unsafe { CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &val as *const i32 as _) }
+    unsafe {
+        CFNumberCreate(
+            kCFAllocatorDefault,
+            kCFNumberSInt32Type,
+            &val as *const i32 as _,
+        )
+    }
 }
 
 fn cfstr(val: &str) -> CFStringRef {
@@ -200,8 +206,7 @@ impl Iterator for IOReportIterator {
         if self.index >= self.items_size {
             return None;
         }
-        let item =
-            unsafe { CFArrayGetValueAtIndex(self.items, self.index) } as CFDictionaryRef;
+        let item = unsafe { CFArrayGetValueAtIndex(self.items, self.index) } as CFDictionaryRef;
         let group = cfio_get_group(item);
         let subgroup = cfio_get_subgroup(item);
         let channel = cfio_get_channel(item);
@@ -316,8 +321,7 @@ impl IOReportSub {
         }
 
         let mut s: MaybeUninit<CFMutableDictionaryRef> = MaybeUninit::uninit();
-        let subs =
-            unsafe { IOReportCreateSubscription(null(), chan, s.as_mut_ptr(), 0, null()) };
+        let subs = unsafe { IOReportCreateSubscription(null(), chan, s.as_mut_ptr(), 0, null()) };
         if subs.is_null() {
             unsafe { CFRelease(chan as _) };
             return None;
@@ -497,9 +501,7 @@ impl SmcConnection {
         let mut gpu_keys = Vec::new();
 
         let key_count = match self.read_val("#KEY") {
-            Some(data) if data.len() >= 4 => {
-                u32::from_be_bytes(data[0..4].try_into().unwrap())
-            }
+            Some(data) if data.len() >= 4 => u32::from_be_bytes(data[0..4].try_into().unwrap()),
             _ => return gpu_keys,
         };
 
@@ -625,13 +627,11 @@ fn iohid_gpu_temp() -> Option<f32> {
                 continue;
             }
 
-            let event =
-                IOHIDServiceClientCopyEvent(sc, kIOHIDEventTypeTemperature, 0, 0);
+            let event = IOHIDServiceClientCopyEvent(sc, kIOHIDEventTypeTemperature, 0, 0);
             if event.is_null() {
                 continue;
             }
-            let temp =
-                IOHIDEventGetFloatValue(event, kIOHIDEventTypeTemperature << 16) as f32;
+            let temp = IOHIDEventGetFloatValue(event, kIOHIDEventTypeTemperature << 16) as f32;
             CFRelease(event as _);
             if temp > 0.0 && temp < 150.0 {
                 gpu_temps.push(temp);
@@ -678,12 +678,7 @@ fn get_gpu_freqs() -> Vec<u32> {
         if name == "pmgr" {
             let mut props: MaybeUninit<CFMutableDictionaryRef> = MaybeUninit::uninit();
             let ok = unsafe {
-                IORegistryEntryCreateCFProperties(
-                    entry,
-                    props.as_mut_ptr(),
-                    kCFAllocatorDefault,
-                    0,
-                )
+                IORegistryEntryCreateCFProperties(entry, props.as_mut_ptr(), kCFAllocatorDefault, 0)
             };
             if ok != 0 {
                 continue;
@@ -770,7 +765,10 @@ impl AppleGpuMonitor {
                 // First call: take a bootstrap sample, wait 100ms, then delta
                 let s1 = self.ior.sample();
                 std::thread::sleep(std::time::Duration::from_millis(100));
-                (s1, std::time::Instant::now() - std::time::Duration::from_millis(100))
+                (
+                    s1,
+                    std::time::Instant::now() - std::time::Duration::from_millis(100),
+                )
             }
         };
 
