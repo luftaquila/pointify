@@ -3,6 +3,7 @@ mod monitor;
 
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -18,6 +19,8 @@ use tauri::{
 use claude::{ClaudeCache, ClaudeUsageEntry};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
+
+type SharedSerial = Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>;
 
 struct ClaudeTtl(AtomicU64);
 
@@ -183,6 +186,39 @@ async fn get_claude_usage(
 }
 
 #[tauri::command]
+fn open_serial_port(port: String, serial: State<SharedSerial>) -> Result<(), String> {
+    let mut lock = serial.lock().map_err(|e| e.to_string())?;
+    if let Some(old) = lock.take() {
+        drop(old);
+    }
+    let p = serialport::new(&port, 115200)
+        .timeout(std::time::Duration::from_millis(100))
+        .open()
+        .map_err(|e| e.to_string())?;
+    *lock = Some(p);
+    Ok(())
+}
+
+#[tauri::command]
+fn close_serial_port(serial: State<SharedSerial>) -> Result<(), String> {
+    let mut lock = serial.lock().map_err(|e| e.to_string())?;
+    if let Some(old) = lock.take() {
+        drop(old);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn send_serial_data(data: Vec<u16>, serial: State<SharedSerial>) -> Result<(), String> {
+    let mut lock = serial.lock().map_err(|e| e.to_string())?;
+    if let Some(port) = lock.as_mut() {
+        let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_be_bytes()).collect();
+        port.write_all(&bytes).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     let lock = state.lock().ok();
     let metrics = lock.as_ref().and_then(|l| l.as_ref());
@@ -220,6 +256,7 @@ pub fn run() {
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
     let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
     let claude_ttl = ClaudeTtl(AtomicU64::new(120));
+    let shared_serial: SharedSerial = Arc::new(Mutex::new(None));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -228,11 +265,15 @@ pub fn run() {
         .manage(shared_interval.clone())
         .manage(claude_cache)
         .manage(claude_ttl)
+        .manage(shared_serial)
         .invoke_handler(tauri::generate_handler![
             get_metrics,
             get_metric_options,
             set_interval,
             list_serial_ports,
+            open_serial_port,
+            close_serial_port,
+            send_serial_data,
             load_config,
             save_config,
             open_claude_env,

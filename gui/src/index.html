@@ -538,7 +538,7 @@
 
   function updateGauge(gi, metrics) {
     const card = document.getElementById(`gauge-${gi}`);
-    if (!card || card.classList.contains('hidden')) return;
+    if (!card || card.classList.contains('hidden')) return 0;
     const st = gaugeStates[gi], def = METRIC_ITEMS.find(m => m.id === st.metricId);
     const value = extractValue(metrics, st.metricId, st.subIndex);
     const pct = value != null ? Math.min(Math.max(value / getEffectiveMax(gi, def), 0), 1) : 0;
@@ -546,6 +546,7 @@
     const fmt = formatDisplay(value, def, st);
     card.querySelector('[data-value]').textContent = fmt.text;
     card.querySelector('[data-unit]').textContent = fmt.unit;
+    return pct;
   }
 
   // ── Gauge count ──
@@ -563,7 +564,16 @@
         invoke('get_claude_usage').catch(() => null),
       ]);
       claudeUsage = claude;
-      for (let i = 0; i < gaugeCount; i++) updateGauge(i, metrics);
+      const data = [];
+      const vBit = voltage === '5' ? 1 : 0;
+      for (let i = 0; i < gaugeCount; i++) {
+        const pct = updateGauge(i, metrics);
+        const pctVal = Math.round(pct * 1023) & 0x3FF;
+        data.push((vBit << 15) | ((i & 0x1F) << 10) | pctVal);
+      }
+      if (serialPortSel.value) {
+        invoke('send_serial_data', { data }).catch(() => {});
+      }
     } catch {}
   }
 
@@ -619,6 +629,11 @@
     if (prev && [...serialPortSel.options].some(o => o.value === prev)) serialPortSel.value = prev;
   }
   serialPortSel.addEventListener('focus', refreshSerialPorts);
+  serialPortSel.addEventListener('change', async () => {
+    await invoke('close_serial_port').catch(() => {});
+    const port = serialPortSel.value;
+    if (port) await invoke('open_serial_port', { port }).catch(() => {});
+  });
 
   // ── Config save/load ──
   let saveTimer = null;
