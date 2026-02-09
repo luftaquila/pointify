@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "CH32X033F8P6")(type "KiCad")(uri "${KIPRJMOD}/ch32x033f8p6/CH32X033F8P6.kicad_sym")(options "")(descr ""))
+)
