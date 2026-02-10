@@ -240,6 +240,8 @@
             <option value="1">1</option><option value="2">2</option>
             <option value="3" selected>3</option><option value="4">4</option>
             <option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option><option value="8">8</option>
+            <option value="9">9</option><option value="10">10</option>
           </select>
         </div>
       </div>
@@ -345,7 +347,7 @@
   }
   const gaugeStates = [];
   const METRIC_ITEMS = METRICS.filter(m => !m.sep);
-  for (let i = 0; i < 6; i++) gaugeStates.push(initGaugeState(METRIC_ITEMS[i]));
+  for (let i = 0; i < 10; i++) gaugeStates.push(initGaugeState(METRIC_ITEMS[i]));
 
   // ── Unit multipliers ──
   function unitMultiplier(u) {
@@ -409,7 +411,7 @@
 
   function buildCards() {
     grid.innerHTML = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       const card = document.createElement('div');
       card.className = 'gauge-card' + (i >= gaugeCount ? ' hidden' : '');
       card.id = `gauge-${i}`;
@@ -478,7 +480,7 @@
     inp.value = gaugeStates[i].maxValue; usel.value = gaugeStates[i].maxUnit;
   }
 
-  function updateAllControls() { for (let i = 0; i < 6; i++) { updateSubDropdown(i); updateMaxRow(i); } }
+  function updateAllControls() { for (let i = 0; i < 10; i++) { updateSubDropdown(i); updateMaxRow(i); } }
 
   function claudeResetPct(resetAt, totalMin) {
     if (!resetAt) return null;
@@ -552,18 +554,22 @@
   // ── Gauge count ──
   const gaugeCountSel = document.getElementById('gauge-count-select');
   function updateGaugeVisibility() {
-    for (let i = 0; i < 6; i++) { const c = document.getElementById(`gauge-${i}`); if (c) c.classList.toggle('hidden', i >= gaugeCount); }
+    for (let i = 0; i < 10; i++) { const c = document.getElementById(`gauge-${i}`); if (c) c.classList.toggle('hidden', i >= gaugeCount); }
   }
   gaugeCountSel.addEventListener('change', () => { gaugeCount = parseInt(gaugeCountSel.value); updateGaugeVisibility(); saveConfig(); });
 
   // ── Polling ──
+  function needsClaude() {
+    for (let i = 0; i < gaugeCount; i++)
+      if (gaugeStates[i].metricId.startsWith('claude_')) return true;
+    return false;
+  }
+
   async function poll() {
     try {
-      const [metrics, claude] = await Promise.all([
-        invoke('get_metrics'),
-        invoke('get_claude_usage').catch(() => null),
-      ]);
-      claudeUsage = claude;
+      const metrics = await invoke('get_metrics');
+      if (needsClaude())
+        claudeUsage = await invoke('get_claude_usage').catch(() => null);
       const data = [];
       const vBit = voltage === '5' ? 1 : 0;
       for (let i = 0; i < gaugeCount; i++) {
@@ -717,7 +723,7 @@
 
         if (cfg.gauges) {
           cfg.gauges.forEach((g, i) => {
-            if (i < 6) {
+            if (i < 10) {
               const valid = METRIC_ITEMS.some(m => m.id === g.metricId);
               gaugeStates[i] = valid
                 ? { metricId: g.metricId, subIndex: g.subIndex, maxValue: g.maxValue, maxUnit: g.maxUnit }
