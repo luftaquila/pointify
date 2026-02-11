@@ -1,6 +1,15 @@
 # pointify-firmware
 
-CH32X033F8P6 firmware. Built on [ch32-hal](https://github.com/ch32-rs/ch32-hal) with [Embassy](https://embassy.dev/) async runtime.
+CH32X033F8P6 firmware built on [ch32-hal](https://github.com/ch32-rs/ch32-hal) with [Embassy](https://embassy.dev/) async runtime.
+
+USB CDC ACM is implemented with raw PAC registers (`pac::usb::Usbd`) since ch32-hal has no USBFS HAL driver for this chip.
+
+## Features
+
+- USB CDC ACM device (VID=0x0200, PID=0x02DB)
+- 7-channel PWM output (TIM1/TIM2/TIM3)
+- Auto-detect 3.3V/5V supply via ADC internal reference
+- Voltage-aware PWM scaling (3V gauges on 5V supply are scaled down)
 
 ## Prerequisites
 
@@ -8,7 +17,7 @@ CH32X033F8P6 firmware. Built on [ch32-hal](https://github.com/ch32-rs/ch32-hal) 
 cargo install probe-rs-tools
 ```
 
-## Build & flash
+## Build & Flash
 
 ```bash
 cargo run --release
