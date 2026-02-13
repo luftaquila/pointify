@@ -758,7 +758,7 @@ impl AppleGpuMonitor {
         })
     }
 
-    pub fn collect(&mut self) -> Vec<GpuMetrics> {
+    pub fn collect(&mut self) -> (Vec<GpuMetrics>, Option<f64>) {
         let (prev_sample, prev_time) = match self.prev_sample.take() {
             Some((s, t)) => (s, t),
             None => {
@@ -783,12 +783,13 @@ impl AppleGpuMonitor {
         self.prev_sample = Some((cur_sample, now));
 
         if delta.is_null() {
-            return vec![self.empty_metrics()];
+            return (vec![self.empty_metrics()], None);
         }
 
         let iter = IOReportIterator::new(delta);
 
         let mut gpu_power: Option<f32> = None;
+        let mut cpu_power: Option<f32> = None;
         let mut gpu_usage: Option<(u32, f32)> = None;
 
         for x in iter {
@@ -798,9 +799,16 @@ impl AppleGpuMonitor {
                 }
             }
 
-            if x.group == "Energy Model" && x.channel == "GPU Energy" {
-                if let Some(w) = cfio_watts(x.item, &x.unit, elapsed_ms) {
-                    gpu_power = Some(gpu_power.unwrap_or(0.0) + w);
+            if x.group == "Energy Model" {
+                if x.channel == "GPU Energy" {
+                    if let Some(w) = cfio_watts(x.item, &x.unit, elapsed_ms) {
+                        gpu_power = Some(gpu_power.unwrap_or(0.0) + w);
+                    }
+                }
+                if x.channel == "CPU Energy" {
+                    if let Some(w) = cfio_watts(x.item, &x.unit, elapsed_ms) {
+                        cpu_power = Some(cpu_power.unwrap_or(0.0) + w);
+                    }
                 }
             }
         }
@@ -816,7 +824,7 @@ impl AppleGpuMonitor {
         }
         .map_or((None, None), |(u, c)| (Some(u), Some(c)));
 
-        vec![GpuMetrics {
+        (vec![GpuMetrics {
             name: self.gpu_name.clone(),
             utilization,
             temperature,
@@ -824,7 +832,7 @@ impl AppleGpuMonitor {
             memory_used: None,
             clock_mhz,
             power_watts: gpu_power.map(|w| w as f64),
-        }]
+        }], cpu_power.map(|w| w as f64))
     }
 
     fn calc_gpu_freq(&self, item: CFDictionaryRef) -> (u32, f32) {

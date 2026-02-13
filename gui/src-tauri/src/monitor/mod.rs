@@ -26,8 +26,13 @@ pub fn start_monitoring(state: SharedMetrics, interval: SharedInterval) {
         thread::sleep(Duration::from_millis(500));
 
         loop {
-            let (cpu, memory, swap, network, disk) = sys_monitor.collect();
-            let gpus = gpu_monitor.collect();
+            let (mut cpu, memory, swap, network, disk) = sys_monitor.collect();
+            let (gpus, gpu_cpu_power) = gpu_monitor.collect();
+
+            // On macOS, CPU power comes from IOReport via GPU monitor
+            if cpu.power_watts.is_none() {
+                cpu.power_watts = gpu_cpu_power;
+            }
 
             let metrics = SystemMetrics {
                 cpu,

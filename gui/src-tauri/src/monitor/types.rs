@@ -6,6 +6,7 @@ pub struct CpuMetrics {
     pub usage: f32,
     pub cores: Vec<CoreMetrics>,
     pub temperature: Option<f32>,
+    pub power_watts: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

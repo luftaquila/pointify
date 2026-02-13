@@ -4,6 +4,65 @@ use sysinfo::{Components, Disks, Networks, System};
 
 use super::types::*;
 
+#[cfg(target_os = "linux")]
+struct RaplReader {
+    path: std::path::PathBuf,
+    prev_energy_uj: u64,
+    prev_time: Instant,
+}
+
+#[cfg(target_os = "linux")]
+impl RaplReader {
+    fn try_new() -> Option<Self> {
+        let candidates = [
+            "/sys/class/powercap/intel-rapl:0/energy_uj",
+            "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj",
+        ];
+        for path in &candidates {
+            let path = std::path::PathBuf::from(path);
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(val) = content.trim().parse::<u64>() {
+                    return Some(Self {
+                        path,
+                        prev_energy_uj: val,
+                        prev_time: Instant::now(),
+                    });
+                }
+            }
+        }
+        None
+    }
+
+    fn read_watts(&mut self) -> Option<f64> {
+        let content = std::fs::read_to_string(&self.path).ok()?;
+        let energy_uj = content.trim().parse::<u64>().ok()?;
+        let now = Instant::now();
+        let elapsed = now.duration_since(self.prev_time).as_secs_f64();
+
+        if elapsed <= 0.0 {
+            return None;
+        }
+
+        // Handle counter wraparound
+        let delta = if energy_uj >= self.prev_energy_uj {
+            energy_uj - self.prev_energy_uj
+        } else {
+            // Counter wrapped around (max_energy_range_uj)
+            let max = std::fs::read_to_string(self.path.with_file_name("max_energy_range_uj"))
+                .ok()
+                .and_then(|s| s.trim().parse::<u64>().ok())
+                .unwrap_or(u64::MAX);
+            max - self.prev_energy_uj + energy_uj
+        };
+
+        self.prev_energy_uj = energy_uj;
+        self.prev_time = now;
+
+        let watts = (delta as f64) / 1_000_000.0 / elapsed;
+        Some(watts)
+    }
+}
+
 pub struct SystemMonitor {
     sys: System,
     components: Components,
@@ -14,6 +73,8 @@ pub struct SystemMonitor {
     last_disk_read: Vec<(String, u64)>,
     last_disk_write: Vec<(String, u64)>,
     last_update: Instant,
+    #[cfg(target_os = "linux")]
+    rapl: Option<RaplReader>,
 }
 
 impl SystemMonitor {
@@ -47,6 +108,8 @@ impl SystemMonitor {
             last_disk_read,
             last_disk_write,
             last_update: Instant::now(),
+            #[cfg(target_os = "linux")]
+            rapl: RaplReader::try_new(),
         }
     }
 
@@ -76,7 +139,7 @@ impl SystemMonitor {
         (cpu, memory, swap, network, disk)
     }
 
-    fn collect_cpu(&self) -> CpuMetrics {
+    fn collect_cpu(&mut self) -> CpuMetrics {
         let cpus = self.sys.cpus();
         let name = if cpus.is_empty() {
             "Unknown".to_string()
@@ -95,11 +158,17 @@ impl SystemMonitor {
 
         let temperature = self.find_cpu_temperature();
 
+        #[cfg(target_os = "linux")]
+        let power_watts = self.rapl.as_mut().and_then(|r| r.read_watts());
+        #[cfg(not(target_os = "linux"))]
+        let power_watts: Option<f64> = None;
+
         CpuMetrics {
             name,
             usage,
             cores,
             temperature,
+            power_watts,
         }
     }
 

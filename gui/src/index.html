@@ -308,6 +308,7 @@
     { id: 'cpu_core_usage',  label: 'Core Utilization',   unit: '%',   sub: 'core' },
     { id: 'cpu_temp',        label: 'CPU Temperature',     unit: '°C',  sub: false,  maxUnits: ['°C'],                   defaultMax: 100,  defaultMaxUnit: '°C' },
     { id: 'cpu_core_freq',   label: 'Core Frequency',    unit: 'MHz', sub: 'core', maxUnits: ['MHz', 'GHz'],           defaultMax: 5,    defaultMaxUnit: 'GHz' },
+    { id: 'cpu_power',       label: 'CPU Power',         unit: 'W',   sub: false,  maxUnits: ['W'],                    defaultMax: 100,  defaultMaxUnit: 'W' },
     { sep: true },
     { id: 'mem_usage',       label: 'Memory Usage', unit: '%',   sub: false },
     { id: 'swap_usage',      label: 'Swap Usage',   unit: '%',   sub: false },
@@ -506,6 +507,7 @@
       case 'cpu_core_usage': return coreIdx != null ? (m.cpu.cores[coreIdx]?.usage ?? null) : null;
       case 'cpu_temp':       return m.cpu.temperature ?? null;
       case 'cpu_core_freq':  return coreIdx != null ? (m.cpu.cores[coreIdx]?.frequency ?? null) : null;
+      case 'cpu_power':     return m.cpu.power_watts ?? null;
       case 'mem_usage':      return m.memory.usage_percent;
       case 'swap_usage':     return m.swap.usage_percent;
       case 'net_rx':    { const f = m.network.interfaces.find(i => i.name === si); return f ? f.rx_bytes_per_sec : null; }

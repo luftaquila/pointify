@@ -70,11 +70,11 @@ impl GpuMonitor {
         }
     }
 
-    pub fn collect(&mut self) -> Vec<GpuMetrics> {
+    pub fn collect(&mut self) -> (Vec<GpuMetrics>, Option<f64>) {
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             if let Some(nvidia) = &self.nvidia {
-                return nvidia.collect();
+                return (nvidia.collect(), None);
             }
         }
 
@@ -85,6 +85,6 @@ impl GpuMonitor {
             }
         }
 
-        Vec::new()
+        (Vec::new(), None)
     }
 }
