@@ -101,6 +101,34 @@ jobs:
             output/pointify-bom.csv
             output/pointify-cpl.csv
 
+  housing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenSCAD Nightly
+        run: |
+          sudo snap install openscad-nightly
+
+
+      - name: Generate STL files
+        run: |
+          models="1x2 1x3 1x4 1x5 1x6 2x2 2x3"
+          mkdir -p output
+          for model in $models; do
+            rows=$(echo $model | cut -d'x' -f1)
+            cols=$(echo $model | cut -d'x' -f2)
+            output_file="output/pointify-3d-${model}.stl"
+            echo "Generating ${output_file}..."
+            openscad-nightly -o "${output_file}" -D "num_rows=${rows}" -D "num_cols=${cols}" device/3d/pointify.scad
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pointify-3d
+          path: output/pointify-*.stl
+
   gui:
     strategy:
       fail-fast: false
@@ -173,7 +201,7 @@ jobs:
           path: pointify-*
 
   release:
-    needs: [firmware, pcb, gui]
+    needs: [firmware, pcb, housing, gui]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
