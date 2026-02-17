@@ -338,6 +338,9 @@ pub fn run() {
             let claude_cache: ClaudeCache = app.state::<ClaudeCache>().inner().clone();
             claude::start_watching(app.handle().clone(), claude_cache);
 
+            // Start ~/.claude/stats-cache.json file watcher
+            claude::start_watching_stats(app.handle().clone());
+
             Ok(())
         })
         .on_window_event(|window, event| {

@@ -304,38 +304,43 @@
 
   // ── Metric definitions ──
   const METRICS = [
-    { id: 'cpu_usage',       label: 'CPU Utilization',    unit: '%',   sub: false },
-    { id: 'cpu_core_usage',  label: 'Core Utilization',   unit: '%',   sub: 'core' },
-    { id: 'cpu_temp',        label: 'CPU Temperature',     unit: '°C',  sub: false,  maxUnits: ['°C'],                   defaultMax: 100,  defaultMaxUnit: '°C' },
-    { id: 'cpu_core_freq',   label: 'Core Frequency',    unit: 'MHz', sub: 'core', maxUnits: ['MHz', 'GHz'],           defaultMax: 5,    defaultMaxUnit: 'GHz' },
-    { id: 'cpu_power',       label: 'CPU Power',         unit: 'W',   sub: false,  maxUnits: ['W'],                    defaultMax: 100,  defaultMaxUnit: 'W' },
+    { id: 'cpu_usage',       label: 'CPU Utilization',   unit: '%',   sub: false },
+    { id: 'cpu_core_usage',  label: 'Core Utilization',  unit: '%',   sub: 'core' },
+    { id: 'cpu_temp',        label: 'CPU Temperature',   unit: '°C',  sub: false,  maxUnits: ['°C'],         defaultMax: 100,  defaultMaxUnit: '°C' },
+    { id: 'cpu_core_freq',   label: 'Core Frequency',    unit: 'MHz', sub: 'core', maxUnits: ['MHz', 'GHz'], defaultMax: 5,    defaultMaxUnit: 'GHz' },
+    { id: 'cpu_power',       label: 'CPU Power',         unit: 'W',   sub: false,  maxUnits: ['W'],          defaultMax: 100,  defaultMaxUnit: 'W' },
     { sep: true },
-    { id: 'mem_usage',       label: 'Memory Usage', unit: '%',   sub: false },
-    { id: 'swap_usage',      label: 'Swap Usage',   unit: '%',   sub: false },
+    { id: 'mem_usage',       label: 'Memory Usage', unit: '%', sub: false },
+    { id: 'swap_usage',      label: 'Swap Usage',   unit: '%', sub: false },
     { sep: true },
-    { id: 'net_rx',          label: 'Network RX Speed',       unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100,  defaultMaxUnit: 'MB/s' },
-    { id: 'net_tx',          label: 'Network TX Speed',       unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100,  defaultMaxUnit: 'MB/s' },
-    { id: 'net_rxtx',        label: 'Network RX/TX Speed',    unit: '/s',  sub: 'net',  maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 200,  defaultMaxUnit: 'MB/s' },
+    { id: 'net_rx',          label: 'Network RX Speed',    unit: '/s', sub: 'net', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100, defaultMaxUnit: 'MB/s' },
+    { id: 'net_tx',          label: 'Network TX Speed',    unit: '/s', sub: 'net', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100, defaultMaxUnit: 'MB/s' },
+    { id: 'net_rxtx',        label: 'Network RX/TX Speed', unit: '/s', sub: 'net', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100, defaultMaxUnit: 'MB/s' },
     { sep: true },
-    { id: 'disk_usage',      label: 'Disk Usage',   unit: '%',   sub: 'disk' },
-    { id: 'disk_read',       label: 'Disk Read Speed',    unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500,  defaultMaxUnit: 'MB/s' },
-    { id: 'disk_write',      label: 'Disk Write Speed',   unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500,  defaultMaxUnit: 'MB/s' },
-    { id: 'disk_rw',         label: 'Disk R/W Speed',   unit: '/s',  sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 1000, defaultMaxUnit: 'MB/s' },
+    { id: 'disk_usage',      label: 'Disk Usage',       unit: '%',  sub: 'disk' },
+    { id: 'disk_read',       label: 'Disk Read Speed',  unit: '/s', sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500, defaultMaxUnit: 'MB/s' },
+    { id: 'disk_write',      label: 'Disk Write Speed', unit: '/s', sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500, defaultMaxUnit: 'MB/s' },
+    { id: 'disk_rw',         label: 'Disk R/W Speed',   unit: '/s', sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500, defaultMaxUnit: 'MB/s' },
     { sep: true },
-    { id: 'gpu_util',        label: 'GPU Utilization',     unit: '%',   sub: 'gpu' },
-    { id: 'gpu_temp',        label: 'GPU Temperature',     unit: '°C',  sub: 'gpu',  maxUnits: ['°C'],                   defaultMax: 100,  defaultMaxUnit: '°C' },
-    { id: 'gpu_clock',       label: 'GPU Clock',    unit: 'MHz', sub: 'gpu',  maxUnits: ['MHz', 'GHz'],           defaultMax: 3,    defaultMaxUnit: 'GHz' },
-    { id: 'gpu_power',       label: 'GPU Power',    unit: 'W',   sub: 'gpu',  maxUnits: ['W'],                    defaultMax: 500,  defaultMaxUnit: 'W' },
-    { id: 'gpu_vram',        label: 'GPU VRAM Usage',   unit: '%',   sub: 'gpu' },
+    { id: 'gpu_util',        label: 'GPU Utilization', unit: '%',   sub: 'gpu' },
+    { id: 'gpu_temp',        label: 'GPU Temperature', unit: '°C',  sub: 'gpu',  maxUnits: ['°C'],         defaultMax: 100, defaultMaxUnit: '°C' },
+    { id: 'gpu_clock',       label: 'GPU Clock',       unit: 'MHz', sub: 'gpu',  maxUnits: ['MHz', 'GHz'], defaultMax: 3,   defaultMaxUnit: 'GHz' },
+    { id: 'gpu_power',       label: 'GPU Power',       unit: 'W',   sub: 'gpu',  maxUnits: ['W'],          defaultMax: 500, defaultMaxUnit: 'W' },
+    { id: 'gpu_vram',        label: 'GPU VRAM Usage',  unit: '%',   sub: 'gpu' },
     { sep: true },
-    { id: 'claude_5h',       label: 'Claude 5h Limit',   unit: '%',   sub: false },
-    { id: 'claude_5h_reset', label: 'Claude 5h Reset',  unit: '%',   sub: false },
-    { id: 'claude_7d',       label: 'Claude 7d Limit',   unit: '%',   sub: false },
-    { id: 'claude_7d_reset', label: 'Claude 7d Reset',  unit: '%',   sub: false },
+    { id: 'claude_5h',       label: 'Claude 5h Limit', unit: '%',   sub: false },
+    { id: 'claude_5h_reset', label: 'Claude 5h Reset', unit: '%',   sub: false },
+    { id: 'claude_7d',       label: 'Claude 7d Limit', unit: '%',   sub: false },
+    { id: 'claude_7d_reset', label: 'Claude 7d Reset', unit: '%',   sub: false },
+    { sep: true },
+    { id: 'claude_code_msgs',   label: 'Claude Code Messages Today',   unit: '', sub: false, maxUnits: [''],       defaultMax: 10000, defaultMaxUnit: '' },
+    { id: 'claude_code_tools',  label: 'Claude Code Tool Calls Today', unit: '', sub: false, maxUnits: [''],       defaultMax: 2000,  defaultMaxUnit: '' },
+    { id: 'claude_code_tokens', label: 'Claude Code Tokens I/O Today', unit: '', sub: false, maxUnits: ['K', 'M'], defaultMax: 300,   defaultMaxUnit: 'K' },
   ];
 
   let metricOptions = null;
   let claudeUsage = null;
+  let claudeCodeStats = null;
   let voltage = '3';
   let gaugeCount = 3;
   let isActive = true;
@@ -353,9 +358,11 @@
   // ── Unit multipliers ──
   function unitMultiplier(u) {
     switch (u) {
-      case 'KB/s': return 1024;       case 'MB/s': return 1048576;    case 'GB/s': return 1073741824;
-      case 'Kbps': return 125;        case 'Mbps': return 125000;     case 'Gbps': return 125000000;
-      case 'GHz':  return 1000;       default:     return 1;
+      case 'KB/s': return 1024;  case 'MB/s': return 1048576;  case 'GB/s': return 1073741824;
+      case 'Kbps': return 125;   case 'Mbps': return 125000;   case 'Gbps': return 125000000;
+      case 'GHz':  return 1000;
+      case 'K':    return 1000;  case 'M':    return 1000000;
+      default:     return 1;
     }
   }
 
@@ -498,6 +505,9 @@
       case 'claude_7d':        return claudeUsage?.seven_day?.utilization ?? null;
       case 'claude_7d_reset':  return claudeResetPct(claudeUsage?.seven_day?.resets_at, 7 * 24 * 60);
       case 'claude_7d_sonnet': return claudeUsage?.seven_day_sonnet?.utilization ?? null;
+      case 'claude_code_msgs':   return claudeCodeStats?.messages ?? null;
+      case 'claude_code_tools':  return claudeCodeStats?.tool_calls ?? null;
+      case 'claude_code_tokens': return claudeCodeStats?.tokens ?? null;
     }
     // System metrics
     if (!m) return null;
@@ -535,7 +545,12 @@
   function formatDisplay(value, def, st) {
     if (value == null) return { text: '--', unit: '' };
     if (def.unit === '%') return { text: value.toFixed(1), unit: '%' };
-    const d = value / unitMultiplier(st.maxUnit);
+    const mul = unitMultiplier(st.maxUnit);
+    if (mul === 1 && !st.maxUnit) {
+      // No unit (e.g. messages, tool calls) - show raw integer
+      return { text: Math.round(value).toString(), unit: '' };
+    }
+    const d = value / mul;
     const text = d >= 100 ? Math.round(d).toString() : d >= 10 ? d.toFixed(1) : d.toFixed(2);
     return { text, unit: st.maxUnit || def.unit };
   }
@@ -561,16 +576,18 @@
   gaugeCountSel.addEventListener('change', () => { gaugeCount = parseInt(gaugeCountSel.value); updateGaugeVisibility(); saveConfig(); });
 
   // ── Polling ──
-  function needsClaude() {
-    for (let i = 0; i < gaugeCount; i++)
-      if (gaugeStates[i].metricId.startsWith('claude_')) return true;
+  function needsClaudeApi() {
+    for (let i = 0; i < gaugeCount; i++) {
+      const id = gaugeStates[i].metricId;
+      if (id.startsWith('claude_') && !id.startsWith('claude_code_')) return true;
+    }
     return false;
   }
 
   async function poll() {
     try {
       const metrics = await invoke('get_metrics');
-      if (needsClaude())
+      if (needsClaudeApi())
         claudeUsage = await invoke('get_claude_usage').catch(() => null);
       const data = [];
       const vBit = voltage === '5' ? 1 : 0;
@@ -686,6 +703,9 @@
   });
   window.__TAURI__.event.listen('claude-env-changed', () => {
     claudeUsage = null;
+  });
+  window.__TAURI__.event.listen('claude-code-stats-changed', (e) => {
+    claudeCodeStats = e.payload;
   });
 
   // ── GitHub ──

@@ -162,6 +162,118 @@ pub async fn fetch_org_id(
         .ok_or_else(|| "No organization found".to_string())
 }
 
+// ── Claude Code stats-cache.json ──
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StatsCache {
+    #[serde(default)]
+    daily_activity: Vec<DailyActivity>,
+    #[serde(default)]
+    daily_model_tokens: Vec<DailyModelTokens>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DailyActivity {
+    date: String,
+    #[serde(default)]
+    message_count: u64,
+    #[serde(default)]
+    tool_call_count: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DailyModelTokens {
+    date: String,
+    #[serde(default)]
+    tokens_by_model: HashMap<String, u64>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ClaudeCodeStats {
+    pub messages: u64,
+    pub tool_calls: u64,
+    pub tokens: u64,
+}
+
+fn read_today_stats() -> Option<ClaudeCodeStats> {
+    let home = dirs::home_dir()?;
+    let path = home.join(".claude").join("stats-cache.json");
+    let content = fs::read_to_string(path).ok()?;
+    let cache: StatsCache = serde_json::from_str(&content).ok()?;
+
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+    let (messages, tool_calls) = cache
+        .daily_activity
+        .iter()
+        .find(|a| a.date == today)
+        .map(|a| (a.message_count, a.tool_call_count))
+        .unwrap_or((0, 0));
+
+    let tokens = cache
+        .daily_model_tokens
+        .iter()
+        .find(|t| t.date == today)
+        .map(|t| t.tokens_by_model.values().sum())
+        .unwrap_or(0);
+
+    Some(ClaudeCodeStats {
+        messages,
+        tool_calls,
+        tokens,
+    })
+}
+
+/// Watch ~/.claude/stats-cache.json for changes and emit stats to the frontend.
+pub fn start_watching_stats(app: tauri::AppHandle) {
+    let claude_dir = match dirs::home_dir() {
+        Some(h) => h.join(".claude"),
+        None => return,
+    };
+
+    let stats_file = claude_dir.join("stats-cache.json");
+
+    std::thread::spawn(move || {
+        // Emit initial stats
+        if let Some(stats) = read_today_stats() {
+            let _ = app.emit("claude-code-stats-changed", stats);
+        }
+
+        let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
+
+        let mut watcher = match notify::recommended_watcher(tx) {
+            Ok(w) => w,
+            Err(e) => {
+                eprintln!("Failed to create stats watcher: {}", e);
+                return;
+            }
+        };
+
+        if let Err(e) = watcher.watch(claude_dir.as_path(), RecursiveMode::NonRecursive) {
+            eprintln!("Failed to watch ~/.claude: {}", e);
+            return;
+        }
+
+        for result in rx {
+            match result {
+                Ok(event) => {
+                    let dominated =
+                        matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_));
+                    if dominated && event.paths.iter().any(|p| p == &stats_file) {
+                        if let Some(stats) = read_today_stats() {
+                            let _ = app.emit("claude-code-stats-changed", stats);
+                        }
+                    }
+                }
+                Err(e) => eprintln!("Stats watch error: {}", e),
+            }
+        }
+    });
+}
+
 pub async fn fetch_usage(
     client: &reqwest::Client,
     creds: &ClaudeCredentials,
