@@ -54,7 +54,7 @@ floor_thickness = 2.0;
 // [Front Tab Settings]
 hole_x = 6; hole_z = 6; target_diag_dist = 11;
 tab_size_lower = 9.2; tab_size_upper = tab_size_lower * 0.7;
-tab_thick_lower = 5.0; tab_thick_upper = 3.0; hole_tap_radius = 1.35;
+tab_thick_lower = 5.0; tab_thick_upper = 3.0; hole_tap_radius = 1.7;
 
 divider_cut_depth = tab_depth + tab_thick_lower;
 
