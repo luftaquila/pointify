@@ -9,8 +9,8 @@ num_rows = 2; // Rows (Height)
 
 // [Dimensions]
 hole_sz = 46; // Unit hole size
-hole_w = hole_sz - 1.0; // Hole width (left/right tolerance: -0.5mm each side)
-hole_h = hole_sz - 0.7; // Hole height (top tolerance: -0.7mm)
+hole_w = hole_sz - 1.0; // Hole width
+hole_h = hole_sz - 0.5; // Hole height
 
 gap = 2.0; // Wall thickness
 margin_bot = 10; // Bottom margin
@@ -66,6 +66,12 @@ hole_tap_radius = 1.7;
 
 divider_cut_depth = tab_depth + tab_thick_lower;
 
+// [Anti-slip Sticker Recess]
+sticker_dia = 12.0;
+sticker_depth = 1.0;
+sticker_inset_x = 12;
+sticker_inset_y = 12;
+
 // ==========================================
 // 2. Main Assembly
 // ==========================================
@@ -89,6 +95,8 @@ union() {
     }
     // Subtract PCB Screw Holes
     pcb_boss_holes();
+    // Subtract Anti-slip Sticker Recesses
+    sticker_recesses();
   }
 }
 
@@ -310,6 +318,21 @@ module tab_shape_variable(size, thick, hole) {
     if (hole) {
       translate([hole_x, -1, hole_z]) rotate([-90, 0, 0]) cylinder(h=thick + 5, r=hole_tap_radius);
     }
+  }
+}
+
+// Helper: Anti-slip Sticker Recesses
+module sticker_recesses() {
+  y_back = calc_back_cut_y();
+  positions = [
+    [sticker_inset_x, sticker_inset_y],
+    [face_w - sticker_inset_x, sticker_inset_y],
+    [sticker_inset_x, y_back - sticker_inset_y],
+    [face_w - sticker_inset_x, y_back - sticker_inset_y]
+  ];
+  for (pos = positions) {
+    translate([pos[0], pos[1], -0.01])
+      cylinder(d=sticker_dia, h=sticker_depth + 0.01);
   }
 }
 
