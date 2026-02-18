@@ -9,15 +9,18 @@ num_rows = 2; // Rows (Height)
 
 // [Dimensions]
 hole_sz = 46; // Unit hole size
+hole_w = hole_sz - 1.0; // Hole width (left/right tolerance: -0.5mm each side)
+hole_h = hole_sz - 0.7; // Hole height (top tolerance: -0.7mm)
+
 gap = 2.0; // Wall thickness
-margin_bot = 4.8; // Bottom margin
-margin_top = 2.2; // Top margin
+margin_bot = 10; // Bottom margin
+margin_top = 2.0; // Top margin
 
 // [Calculated Dimensions]
 // Total Width = (Cols * Hole) + Walls
-face_w = (num_cols * hole_sz) + ( (num_cols + 1) * gap);
+face_w = (num_cols * hole_w) + ( (num_cols + 1) * gap);
 // Total Height = (Rows * Hole) + Walls + Margins
-face_h = margin_bot + (num_rows * hole_sz) + ( (num_rows - 1) * gap) + margin_top;
+face_h = margin_bot + (num_rows * hole_h) + ( (num_rows - 1) * gap) + margin_top;
 
 // [View Settings]
 explode_dist = 40; // 0 for assembly, >0 for exploded view
@@ -46,7 +49,7 @@ usb_h = 3.4;
 usb_r = usb_h / 2;
 
 // [Geometry Definition]
-tilt_angle = 15;
+tilt_angle = 20;
 top_side_length = 32;
 tab_depth = 9.5;
 floor_thickness = 2.0;
@@ -121,7 +124,7 @@ module lip_insert_counterbored() {
   hole_coords = [[margin_x, z_top_hole], [end_x - 4, z_top_hole], [margin_x, z_bot_hole], [end_x - 4, z_bot_hole]];
 
   // USB Position Calculation
-  div_center_x = gap + hole_sz + (gap / 2);
+  div_center_x = gap + hole_w + (gap / 2);
   pcb_bottom_z = floor_thickness + pcb_boss_height + patch_nut_height;
   usb_center_z = pcb_bottom_z - (usb_h / 2);
 
@@ -129,7 +132,7 @@ module lip_insert_counterbored() {
     // Main Lip Body
     color("#ffaa00")
       translate([gap + tolerance, -cover_thickness, z_bot_actual + tolerance])
-        cube([inner_total_width - (2 * tolerance), cover_thickness, lip_h]);
+        cube([inner_total_width - (2 * tolerance), cover_thickness, lip_h - (2 * tolerance)]);
 
     // Screw Holes
     for (pt = hole_coords) {
@@ -156,7 +159,7 @@ module lip_insert_counterbored() {
 module pcb_bosses_solid() {
   y_cut = calc_back_cut_y();
   y_pos = y_cut - cover_thickness - pcb_dist_from_cover;
-  div_center_x = gap + hole_sz + (gap / 2);
+  div_center_x = gap + hole_w + (gap / 2);
   x_pos_left = div_center_x - (pcb_hole_dist / 2);
   x_pos_right = div_center_x + (pcb_hole_dist / 2);
 
@@ -170,7 +173,7 @@ module pcb_bosses_solid() {
 module pcb_boss_holes() {
   y_cut = calc_back_cut_y();
   y_pos = y_cut - cover_thickness - pcb_dist_from_cover;
-  div_center_x = gap + hole_sz + (gap / 2);
+  div_center_x = gap + hole_w + (gap / 2);
   x_pos_left = div_center_x - (pcb_hole_dist / 2);
   x_pos_right = div_center_x + (pcb_hole_dist / 2);
 
@@ -240,16 +243,15 @@ module rotated_holes_with_cut_dividers() {
   rotate([-tilt_angle, 0, 0]) union() {
       for (r = [0:num_rows - 1]) {
         for (c = [0:num_cols - 1]) {
-          translate([gap + c * (hole_sz + gap), -1, margin_bot + r * (hole_sz + gap)])
-            cube([hole_sz, 150, hole_sz]);
+          translate([gap + c * (hole_w + gap), -1, margin_bot + r * (hole_h + gap)])
+            cube([hole_w, 150, hole_h]);
         }
       }
       // Rear Cutout (Unified Chamber)
       inner_total_width = face_w - (2 * gap);
-      for (r = [0:num_rows - 1]) {
-        translate([gap, divider_cut_depth, margin_bot + r * (hole_sz + gap)])
-          cube([inner_total_width, 150, hole_sz]);
-      }
+      total_grid_h = (num_rows * hole_h) + ((num_rows - 1) * gap);
+      translate([gap, divider_cut_depth, margin_bot])
+        cube([inner_total_width, 150, total_grid_h]);
     }
 }
 
@@ -257,7 +259,7 @@ module rotated_holes_with_cut_dividers() {
 module rotated_tabs() {
   rotate([-tilt_angle, 0, 0])for (r = [0:num_rows - 1]) {
     for (c = [0:num_cols - 1]) {
-      translate([gap + c * (hole_sz + gap), tab_depth, margin_bot + r * (hole_sz + gap)])
+      translate([gap + c * (hole_w + gap), tab_depth, margin_bot + r * (hole_h + gap)])
         render_single_tab_set();
     }
   }
@@ -290,9 +292,9 @@ module shell_body() {
 // Helper: Front Tab Set (4 Tabs per Hole)
 module render_single_tab_set() {
   translate([0, 0, 0]) tab_shape_variable(tab_size_lower, tab_thick_lower, hole=true);
-  translate([hole_sz, 0, 0]) mirror([1, 0, 0]) tab_shape_variable(tab_size_lower, tab_thick_lower, hole=true);
-  translate([0, 0, hole_sz]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
-  translate([hole_sz, 0, hole_sz]) mirror([1, 0, 0]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
+  translate([hole_w, 0, 0]) mirror([1, 0, 0]) tab_shape_variable(tab_size_lower, tab_thick_lower, hole=true);
+  translate([0, 0, hole_h]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
+  translate([hole_w, 0, hole_h]) mirror([1, 0, 0]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
 }
 
 // Helper: Individual Tab Shape
