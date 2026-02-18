@@ -113,7 +113,7 @@ jobs:
 
       - name: Generate STL files
         run: |
-          models="1x2 1x3 1x4 1x5 1x6 2x2 2x3"
+          models="1x2 1x3 1x4 1x5 1x6 1x7 2x2 2x3"
           mkdir -p output
           for model in $models; do
             rows=$(echo $model | cut -d'x' -f1)

@@ -1,51 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pointify</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pointify</title>
+    <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     /* ── Theme variables ── */
     :root {
-      --bg: #12111a; --bg-side: #18171f; --bg-card: #1e1c16; --bg-input: #16151e; --bg-display: #141210;
-      --border: #2d2a20; --border-dim: #232018;
-      --text: #d0c8b8; --accent: #c8a96e; --accent-hi: #d4b060; --muted: #7a6d50; --dim: #5a5438;
-      --track: #2a2520; --tick: #4a4530; --tick-hi: #8a7d50; --tick-lbl: #9a8d60;
-      --needle: #c0392b; --pivot-bg: #0a0908; --pivot: #3a3020; --pivot-str: #6a5d3a;
-      --toggle-on: #4a8c5c; --toggle-off: #3a3530; --toggle-knob: #d0c8b8;
-      --shadow: 0 2px 8px rgba(0,0,0,0.3);
+      --bg: #12111a;
+      --bg-side: #18171f;
+      --bg-card: #1e1c16;
+      --bg-input: #16151e;
+      --bg-display: #141210;
+      --border: #2d2a20;
+      --border-dim: #232018;
+      --text: #d0c8b8;
+      --accent: #c8a96e;
+      --accent-hi: #d4b060;
+      --muted: #7a6d50;
+      --dim: #5a5438;
+      --track: #2a2520;
+      --tick: #4a4530;
+      --tick-hi: #8a7d50;
+      --tick-lbl: #9a8d60;
+      --needle: #c0392b;
+      --pivot-bg: #0a0908;
+      --pivot: #3a3020;
+      --pivot-str: #6a5d3a;
+      --toggle-on: #4a8c5c;
+      --toggle-off: #3a3530;
+      --toggle-knob: #d0c8b8;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23c8a96e'/%3E%3C/svg%3E");
     }
     body.light {
-      --bg: #e8e4dc; --bg-side: #ddd8d0; --bg-card: #f0ece4; --bg-input: #e4e0d8; --bg-display: #ddd8d0;
-      --border: #c0b8a8; --border-dim: #d0c8b8;
-      --text: #3a3530; --accent: #7a6030; --accent-hi: #5a4020; --muted: #8a7d60; --dim: #a09878;
-      --track: #d0c8b8; --tick: #c0b8a0; --tick-hi: #8a7d50; --tick-lbl: #7a6d40;
-      --needle: #c0392b; --pivot-bg: #c8c0b0; --pivot: #d8d0c0; --pivot-str: #a09880;
-      --toggle-off: #c0b8a8; --toggle-knob: #fff;
-      --shadow: 0 2px 6px rgba(0,0,0,0.08);
+      --bg: #e8e4dc;
+      --bg-side: #ddd8d0;
+      --bg-card: #f0ece4;
+      --bg-input: #e4e0d8;
+      --bg-display: #ddd8d0;
+      --border: #c0b8a8;
+      --border-dim: #d0c8b8;
+      --text: #3a3530;
+      --accent: #7a6030;
+      --accent-hi: #5a4020;
+      --muted: #8a7d60;
+      --dim: #a09878;
+      --track: #d0c8b8;
+      --tick: #c0b8a0;
+      --tick-hi: #8a7d50;
+      --tick-lbl: #7a6d40;
+      --needle: #c0392b;
+      --pivot-bg: #c8c0b0;
+      --pivot: #d8d0c0;
+      --pivot-str: #a09880;
+      --toggle-off: #c0b8a8;
+      --toggle-knob: #fff;
+      --shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
       --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%237a6030'/%3E%3C/svg%3E");
     }
 
     body {
-      background: var(--bg); color: var(--text);
-      font-family: 'Courier New', monospace;
-      transition: background .3s, color .3s;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Courier New", monospace;
+      transition:
+        background 0.3s,
+        color 0.3s;
     }
 
     /* ── Layout ── */
-    .app { display: flex; min-height: 100vh; }
-
-    .sidebar {
-      width: 180px; flex-shrink: 0;
-      background: var(--bg-side); border-right: 1px solid var(--border);
-      display: flex; flex-direction: column;
-      transition: background .3s, border-color .3s;
+    .app {
+      display: flex;
+      min-height: 100vh;
     }
 
-    main { flex: 1; min-width: 0; overflow-y: auto; padding: 14px; }
+    .sidebar {
+      width: 180px;
+      flex-shrink: 0;
+      background: var(--bg-side);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transition:
+        background 0.3s,
+        border-color 0.3s;
+    }
+
+    main {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 14px;
+    }
 
     /* ── Sidebar ── */
     .sidebar-header {
@@ -53,356 +106,730 @@
       border-bottom: 1px solid var(--border);
     }
     .sidebar-header h1 {
-      font-size: 15px; letter-spacing: 5px; text-transform: uppercase;
+      font-size: 15px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
       color: var(--accent);
     }
 
-    .sidebar-section { padding: 14px; border-bottom: 1px solid var(--border); }
+    .sidebar-section {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+    }
     .sidebar-section h2 {
-      font-size: 12px; text-transform: uppercase; letter-spacing: 2px;
-      color: var(--muted); margin-bottom: 12px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 12px;
     }
 
     .setting-row {
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 8px;
     }
-    .setting-row:last-child { margin-bottom: 0; }
-    .setting-row span { font-size: 14px; color: var(--text); }
+    .setting-row:last-child {
+      margin-bottom: 0;
+    }
+    .setting-row span {
+      font-size: 14px;
+      color: var(--text);
+    }
 
     .sidebar-section select {
-      height: 24px; padding: 1px 20px 1px 6px;
-      background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
-      color: var(--accent); font-family: inherit; font-size: 13px;
-      cursor: pointer; appearance: none; -webkit-appearance: none;
-      background-image: var(--arrow); background-repeat: no-repeat; background-position: right 5px center;
-      transition: background .3s, border-color .3s, color .3s;
+      height: 24px;
+      padding: 1px 20px 1px 6px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: var(--arrow);
+      background-repeat: no-repeat;
+      background-position: right 5px center;
+      transition:
+        background 0.3s,
+        border-color 0.3s,
+        color 0.3s;
     }
-    .sidebar-section select:focus { outline: 1px solid var(--accent); }
-    .sidebar-section select option { background: var(--bg-input); color: var(--accent); }
+    .sidebar-section select:focus {
+      outline: 1px solid var(--accent);
+    }
+    .sidebar-section select option {
+      background: var(--bg-input);
+      color: var(--accent);
+    }
 
     /* Toggle switch */
-    .toggle { position: relative; display: inline-block; width: 36px; height: 20px; cursor: pointer; }
-    .toggle input { display: none; }
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+      cursor: pointer;
+    }
+    .toggle input {
+      display: none;
+    }
     .toggle-track {
-      position: absolute; inset: 0; background: var(--toggle-off);
-      border-radius: 10px; transition: background .2s;
+      position: absolute;
+      inset: 0;
+      background: var(--toggle-off);
+      border-radius: 10px;
+      transition: background 0.2s;
     }
     .toggle-track::after {
-      content: ''; position: absolute; width: 16px; height: 16px;
-      left: 2px; top: 2px; background: var(--toggle-knob);
-      border-radius: 50%; transition: transform .2s, background .3s;
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 2px;
+      top: 2px;
+      background: var(--toggle-knob);
+      border-radius: 50%;
+      transition:
+        transform 0.2s,
+        background 0.3s;
     }
-    .toggle input:checked + .toggle-track { background: var(--toggle-on); }
-    .toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+    .toggle input:checked + .toggle-track {
+      background: var(--toggle-on);
+    }
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(16px);
+    }
 
     /* Sidebar footer */
     .sidebar-footer {
-      margin-top: auto; padding: 14px;
+      margin-top: auto;
+      padding: 14px;
       border-top: 1px solid var(--border);
-      display: flex; gap: 8px;
+      display: flex;
+      gap: 8px;
     }
     .sidebar-footer button,
     .sidebar-footer a {
-      display: flex; align-items: center; justify-content: center;
-      width: 32px; height: 32px;
-      border: 1px solid var(--border); border-radius: 6px;
-      background: var(--bg-input); color: var(--muted);
-      cursor: pointer; text-decoration: none;
-      transition: color .2s, border-color .2s, background .3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: none;
+      transition:
+        color 0.2s,
+        border-color 0.2s,
+        background 0.3s;
     }
     .sidebar-footer button:hover,
-    .sidebar-footer a:hover { color: var(--accent); border-color: var(--accent); }
-    .sidebar-footer svg { width: 16px; height: 16px; }
+    .sidebar-footer a:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .sidebar-footer svg {
+      width: 16px;
+      height: 16px;
+    }
 
     /* ── Gauge grid ── */
     .grid {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 350px));
-      gap: 14px; justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 350px));
+      gap: 14px;
+      justify-content: center;
     }
-    .grid.paused .gauge-card { opacity: .45; }
+    .grid.paused .gauge-card {
+      opacity: 0.45;
+    }
 
     .gauge-card {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       padding: 8px 10px 12px;
-      display: flex; flex-direction: column; align-items: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       box-shadow: var(--shadow);
-      transition: background .3s, border-color .3s, box-shadow .3s, opacity .3s;
+      transition:
+        background 0.3s,
+        border-color 0.3s,
+        box-shadow 0.3s,
+        opacity 0.3s;
     }
 
-    .gauge-svg { width: 100%; }
+    .gauge-svg {
+      width: 100%;
+    }
 
     /* ── SVG gauge ── */
-    .gauge-track { fill: none; stroke: var(--track); stroke-width: 6; stroke-linecap: round; transition: stroke .3s; }
-    .gauge-tick { stroke: var(--tick); stroke-width: 1; transition: stroke .3s; }
-    .gauge-tick-mid { stroke: var(--tick); stroke-width: 1; transition: stroke .3s; }
-    .gauge-tick-major { stroke: var(--tick-hi); stroke-width: 1.5; transition: stroke .3s; }
-    .gauge-tick-label { fill: var(--tick-lbl); font-size: 12px; font-family: 'Courier New', monospace; transition: fill .3s; }
+    .gauge-track {
+      fill: none;
+      stroke: var(--track);
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke 0.3s;
+    }
+    .gauge-tick {
+      stroke: var(--tick);
+      stroke-width: 1;
+      transition: stroke 0.3s;
+    }
+    .gauge-tick-mid {
+      stroke: var(--tick);
+      stroke-width: 1;
+      transition: stroke 0.3s;
+    }
+    .gauge-tick-major {
+      stroke: var(--tick-hi);
+      stroke-width: 1.5;
+      transition: stroke 0.3s;
+    }
+    .gauge-tick-label {
+      fill: var(--tick-lbl);
+      font-size: 12px;
+      font-family: "Courier New", monospace;
+      transition: fill 0.3s;
+    }
 
     .gauge-needle {
       fill: var(--needle);
-      filter: drop-shadow(0 0 3px rgba(192,57,43,0.4)) drop-shadow(0 1px 2px rgba(0,0,0,0.5));
-      transition: transform 0.6s cubic-bezier(0.3, 1.2, 0.5, 1), fill .3s;
+      filter: drop-shadow(0 0 3px rgba(192, 57, 43, 0.4)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+      transition:
+        transform 0.6s cubic-bezier(0.3, 1.2, 0.5, 1),
+        fill 0.3s;
       transform-origin: 100px 110px;
     }
-    .gauge-pivot-bg { fill: var(--pivot-bg); transition: fill .3s; }
-    .gauge-pivot { fill: var(--pivot); stroke: var(--pivot-str); stroke-width: 1.5; transition: fill .3s, stroke .3s; }
-
-    .gauge-display { fill: var(--bg-display); stroke: var(--border-dim); stroke-width: .5; transition: fill .3s, stroke .3s; }
-    .gauge-value { fill: var(--accent-hi); font-size: 18px; font-family: 'Courier New', monospace; font-weight: bold; transition: fill .3s; }
-    .gauge-unit { fill: var(--muted); font-size: 12px; font-family: 'Courier New', monospace; transition: fill .3s; }
-    /* ── Gauge controls ── */
-    .gauge-selectors {
-      display: flex; flex-direction: column; justify-content: center;
-      gap: 3px; margin-top: 14px; width: 100%; flex: 1;
+    .gauge-pivot-bg {
+      fill: var(--pivot-bg);
+      transition: fill 0.3s;
+    }
+    .gauge-pivot {
+      fill: var(--pivot);
+      stroke: var(--pivot-str);
+      stroke-width: 1.5;
+      transition:
+        fill 0.3s,
+        stroke 0.3s;
     }
 
-    .ctrl-row { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+    .gauge-display {
+      fill: var(--bg-display);
+      stroke: var(--border-dim);
+      stroke-width: 0.5;
+      transition:
+        fill 0.3s,
+        stroke 0.3s;
+    }
+    .gauge-value {
+      fill: var(--accent-hi);
+      font-size: 18px;
+      font-family: "Courier New", monospace;
+      font-weight: bold;
+      transition: fill 0.3s;
+    }
+    .gauge-unit {
+      fill: var(--muted);
+      font-size: 12px;
+      font-family: "Courier New", monospace;
+      transition: fill 0.3s;
+    }
+    /* ── Gauge controls ── */
+    .gauge-selectors {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      margin-top: 14px;
+      width: 100%;
+      flex: 1;
+    }
+
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 26px;
+    }
 
     .ctrl-row label {
-      font-size: 13px; color: var(--muted);
-      flex-shrink: 0; width: 46px; text-align: right;
-      transition: color .3s;
+      font-size: 13px;
+      color: var(--muted);
+      flex-shrink: 0;
+      width: 46px;
+      text-align: right;
+      transition: color 0.3s;
     }
 
     .ctrl-row select {
-      flex: 1; min-width: 0; height: auto; min-height: 26px;
+      flex: 1;
+      min-width: 0;
+      height: auto;
+      min-height: 26px;
       padding: 4px 20px 4px 8px;
-      background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
-      color: var(--accent); font-family: inherit; font-size: 14px;
-      cursor: pointer; appearance: none; -webkit-appearance: none;
-      background-image: var(--arrow); background-repeat: no-repeat; background-position: right 7px center;
-      white-space: normal; text-align: center;
-      transition: background .3s, border-color .3s, color .3s;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: var(--arrow);
+      background-repeat: no-repeat;
+      background-position: right 7px center;
+      white-space: normal;
+      text-align: center;
+      transition:
+        background 0.3s,
+        border-color 0.3s,
+        color 0.3s;
     }
-    .ctrl-row select:focus { outline: 1px solid var(--accent); }
-    .ctrl-row select option { background: var(--bg-input); color: var(--accent); }
+    .ctrl-row select:focus {
+      outline: 1px solid var(--accent);
+    }
+    .ctrl-row select option {
+      background: var(--bg-input);
+      color: var(--accent);
+    }
 
     .ctrl-row input[type="number"] {
-      flex: 1; min-width: 0; height: 26px; padding: 2px 8px;
-      background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
-      color: var(--accent); font-family: inherit; font-size: 14px;
-      transition: background .3s, border-color .3s, color .3s;
+      flex: 1;
+      min-width: 0;
+      height: 26px;
+      padding: 2px 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 14px;
+      transition:
+        background 0.3s,
+        border-color 0.3s,
+        color 0.3s;
     }
-    .ctrl-row input[type="number"]:focus { outline: 1px solid var(--accent); }
+    .ctrl-row input[type="number"]:focus {
+      outline: 1px solid var(--accent);
+    }
     .ctrl-row input[type="number"]::-webkit-inner-spin-button,
-    .ctrl-row input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .ctrl-row input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
 
-    .ctrl-row .max-unit { flex: 0 0 64px; width: 64px; padding-left: 6px; background-position: right 5px center; }
+    .ctrl-row .max-unit {
+      flex: 0 0 64px;
+      width: 64px;
+      padding-left: 6px;
+      background-position: right 5px center;
+    }
 
-    .hidden { display: none !important; }
-  </style>
-</head>
-<body>
-  <div class="app">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header"><h1>Pointify</h1></div>
-
-      <div class="sidebar-section">
-        <h2>Device</h2>
-        <div class="setting-row">
-          <span>Active</span>
-          <label class="toggle">
-            <input type="checkbox" id="toggle-active" checked>
-            <span class="toggle-track"></span>
-          </label>
+    .hidden {
+      display: none !important;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h1>Pointify</h1>
         </div>
-        <div class="setting-row">
-          <span>Voltage</span>
-          <select id="voltage-select">
-            <option value="3" selected>3V</option>
-            <option value="5">5V</option>
+
+        <div class="sidebar-section">
+          <h2>Device</h2>
+          <div class="setting-row">
+            <span>Active</span>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-active" checked>
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <span>Voltage</span>
+            <select id="voltage-select">
+              <option value="3" selected>3V</option>
+              <option value="5">5V</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <span>Interval</span>
+            <select id="interval-select">
+              <option value="100">100 ms</option>
+              <option value="200" selected>200 ms</option>
+              <option value="500">500 ms</option>
+              <option value="1000">1 s</option>
+              <option value="2000">2 s</option>
+              <option value="5000">5 s</option>
+              <option value="10000">10 s</option>
+            </select>
+          </div>
+          <select id="serial-port-select" style="width:100%; margin-top:4px;">
+            <option value="" disabled selected>Serial Port</option>
           </select>
         </div>
-        <div class="setting-row">
-          <span>Interval</span>
-          <select id="interval-select">
-            <option value="100">100 ms</option>
-            <option value="200" selected>200 ms</option>
-            <option value="500">500 ms</option>
-            <option value="1000">1 s</option>
-            <option value="2000">2 s</option>
-            <option value="5000">5 s</option>
-            <option value="10000">10 s</option>
-          </select>
-        </div>
-        <select id="serial-port-select" style="width:100%; margin-top:4px;">
-          <option value="" disabled selected>Serial Port</option>
-        </select>
-      </div>
 
-      <div class="sidebar-section">
-        <h2>Gauges</h2>
-        <div class="setting-row">
-          <span>Count</span>
-          <select id="gauge-count-select">
-            <option value="1">1</option><option value="2">2</option>
-            <option value="3" selected>3</option><option value="4">4</option>
-            <option value="5">5</option><option value="6">6</option>
-            <option value="7">7</option><option value="8">8</option>
-            <option value="9">9</option><option value="10">10</option>
-          </select>
+        <div class="sidebar-section">
+          <h2>Gauges</h2>
+          <div class="setting-row">
+            <span>Count</span>
+            <select id="gauge-count-select">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+            </select>
+          </div>
         </div>
-      </div>
 
-      <div class="sidebar-section">
-        <h2>Claude</h2>
-        <div class="setting-row">
-          <span>Refresh</span>
-          <select id="claude-refresh-select">
-            <option value="30">30s</option>
-            <option value="60">1m</option>
-            <option value="120" selected>2m</option>
-            <option value="300">5m</option>
-            <option value="600">10m</option>
-            <option value="1800">30m</option>
-            <option value="3600">1h</option>
-          </select>
-        </div>
-        <button id="open-claude-env" style="
+        <div class="sidebar-section">
+          <h2>Claude</h2>
+          <div class="setting-row">
+            <span>Refresh</span>
+            <select id="claude-refresh-select">
+              <option value="30">30s</option>
+              <option value="60">1m</option>
+              <option value="120" selected>2m</option>
+              <option value="300">5m</option>
+              <option value="600">10m</option>
+              <option value="1800">30m</option>
+              <option value="3600">1h</option>
+            </select>
+          </div>
+          <button
+            id="open-claude-env"
+            style="
           width:100%; height:28px; padding:0 8px;
           background:var(--bg-input); border:1px solid var(--border); border-radius:4px;
           color:var(--accent); font-family:inherit; font-size:11px; cursor:pointer;
           transition:background .3s,border-color .3s,color .3s;
-        ">Open .claude.env</button>
-      </div>
+        "
+          >
+            Open .claude.env
+          </button>
+        </div>
 
-      <div class="sidebar-footer">
-        <button id="theme-toggle" title="Toggle theme">
-          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-          <svg class="icon-moon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-        </button>
-        <a id="github-link" href="#" title="GitHub">
-          <svg viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68.94 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/>
-          </svg>
-        </a>
-      </div>
-    </aside>
+        <div class="sidebar-footer">
+          <button id="theme-toggle" title="Toggle theme">
+            <svg
+              class="icon-sun"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            </svg>
+            <svg
+              class="icon-moon hidden"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          </button>
+          <a id="github-link" href="#" title="GitHub">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+              <path
+                d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68.94 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+              />
+            </svg>
+          </a>
+        </div>
+      </aside>
 
-    <!-- Main -->
-    <main>
-      <div class="grid" id="gauge-grid"></div>
-    </main>
-  </div>
+      <!-- Main -->
+      <main>
+        <div class="grid" id="gauge-grid"></div>
+      </main>
+    </div>
 
-<script>
-(function() {
-  const { invoke } = window.__TAURI__.core;
+    <script>
+    (function () {
+      const { invoke } = window.__TAURI__.core;
 
-  // ── Constants ──
-  const ARC_START = -45, ARC_END = 45, ARC_RANGE = ARC_END - ARC_START;
-  const CX = 100, CY = 120, R = 75;
+      // ── Constants ──
+      const ARC_START = -45,
+        ARC_END = 45,
+        ARC_RANGE = ARC_END - ARC_START;
+      const CX = 100,
+        CY = 120,
+        R = 75;
 
-  // ── Metric definitions ──
-  const METRICS = [
-    { id: 'cpu_usage',       label: 'CPU Utilization',   unit: '%',   sub: false },
-    { id: 'cpu_core_usage',  label: 'Core Utilization',  unit: '%',   sub: 'core' },
-    { id: 'cpu_temp',        label: 'CPU Temperature',   unit: '°C',  sub: false,  maxUnits: ['°C'],         defaultMax: 100,  defaultMaxUnit: '°C' },
-    { id: 'cpu_core_freq',   label: 'Core Frequency',    unit: 'MHz', sub: 'core', maxUnits: ['MHz', 'GHz'], defaultMax: 5,    defaultMaxUnit: 'GHz' },
-    { id: 'cpu_power',       label: 'CPU Power',         unit: 'W',   sub: false,  maxUnits: ['W'],          defaultMax: 100,  defaultMaxUnit: 'W' },
-    { sep: true },
-    { id: 'mem_usage',       label: 'Memory Usage', unit: '%', sub: false },
-    { id: 'swap_usage',      label: 'Swap Usage',   unit: '%', sub: false },
-    { sep: true },
-    { id: 'net_rx',          label: 'Network RX Speed',    unit: '/s', sub: 'net', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100, defaultMaxUnit: 'MB/s' },
-    { id: 'net_tx',          label: 'Network TX Speed',    unit: '/s', sub: 'net', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100, defaultMaxUnit: 'MB/s' },
-    { id: 'net_rxtx',        label: 'Network RX/TX Speed', unit: '/s', sub: 'net', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 100, defaultMaxUnit: 'MB/s' },
-    { sep: true },
-    { id: 'disk_usage',      label: 'Disk Usage',       unit: '%',  sub: 'disk' },
-    { id: 'disk_read',       label: 'Disk Read Speed',  unit: '/s', sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500, defaultMaxUnit: 'MB/s' },
-    { id: 'disk_write',      label: 'Disk Write Speed', unit: '/s', sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500, defaultMaxUnit: 'MB/s' },
-    { id: 'disk_rw',         label: 'Disk R/W Speed',   unit: '/s', sub: 'disk', maxUnits: ['KB/s', 'MB/s', 'GB/s', 'Kbps', 'Mbps', 'Gbps'], defaultMax: 500, defaultMaxUnit: 'MB/s' },
-    { sep: true },
-    { id: 'gpu_util',        label: 'GPU Utilization', unit: '%',   sub: 'gpu' },
-    { id: 'gpu_temp',        label: 'GPU Temperature', unit: '°C',  sub: 'gpu',  maxUnits: ['°C'],         defaultMax: 100, defaultMaxUnit: '°C' },
-    { id: 'gpu_clock',       label: 'GPU Clock',       unit: 'MHz', sub: 'gpu',  maxUnits: ['MHz', 'GHz'], defaultMax: 3,   defaultMaxUnit: 'GHz' },
-    { id: 'gpu_power',       label: 'GPU Power',       unit: 'W',   sub: 'gpu',  maxUnits: ['W'],          defaultMax: 500, defaultMaxUnit: 'W' },
-    { id: 'gpu_vram',        label: 'GPU VRAM Usage',  unit: '%',   sub: 'gpu' },
-    { sep: true },
-    { id: 'claude_5h',       label: 'Claude 5h Limit', unit: '%',   sub: false },
-    { id: 'claude_5h_reset', label: 'Claude 5h Reset', unit: '%',   sub: false },
-    { id: 'claude_7d',       label: 'Claude 7d Limit', unit: '%',   sub: false },
-    { id: 'claude_7d_reset', label: 'Claude 7d Reset', unit: '%',   sub: false },
-    { sep: true },
-    { id: 'claude_code_msgs',   label: 'Claude Code Messages Today',   unit: '', sub: false, maxUnits: [''],       defaultMax: 10000, defaultMaxUnit: '' },
-    { id: 'claude_code_tools',  label: 'Claude Code Tool Calls Today', unit: '', sub: false, maxUnits: [''],       defaultMax: 2000,  defaultMaxUnit: '' },
-    { id: 'claude_code_tokens', label: 'Claude Code Tokens I/O Today', unit: '', sub: false, maxUnits: ['K', 'M'], defaultMax: 300,   defaultMaxUnit: 'K' },
-  ];
+      // ── Metric definitions ──
+      const METRICS = [
+        { id: "cpu_usage", label: "CPU Utilization", unit: "%", sub: false },
+        { id: "cpu_core_usage", label: "Core Utilization", unit: "%", sub: "core" },
+        {
+          id: "cpu_temp",
+          label: "CPU Temperature",
+          unit: "°C",
+          sub: false,
+          maxUnits: ["°C"],
+          defaultMax: 100,
+          defaultMaxUnit: "°C",
+        },
+        {
+          id: "cpu_core_freq",
+          label: "Core Frequency",
+          unit: "MHz",
+          sub: "core",
+          maxUnits: ["MHz", "GHz"],
+          defaultMax: 5,
+          defaultMaxUnit: "GHz",
+        },
+        {
+          id: "cpu_power",
+          label: "CPU Power",
+          unit: "W",
+          sub: false,
+          maxUnits: ["W"],
+          defaultMax: 100,
+          defaultMaxUnit: "W",
+        },
+        { sep: true },
+        { id: "mem_usage", label: "Memory Usage", unit: "%", sub: false },
+        { id: "swap_usage", label: "Swap Usage", unit: "%", sub: false },
+        { sep: true },
+        {
+          id: "net_rx",
+          label: "Network RX Speed",
+          unit: "/s",
+          sub: "net",
+          maxUnits: ["KB/s", "MB/s", "GB/s", "Kbps", "Mbps", "Gbps"],
+          defaultMax: 100,
+          defaultMaxUnit: "MB/s",
+        },
+        {
+          id: "net_tx",
+          label: "Network TX Speed",
+          unit: "/s",
+          sub: "net",
+          maxUnits: ["KB/s", "MB/s", "GB/s", "Kbps", "Mbps", "Gbps"],
+          defaultMax: 100,
+          defaultMaxUnit: "MB/s",
+        },
+        {
+          id: "net_rxtx",
+          label: "Network RX/TX Speed",
+          unit: "/s",
+          sub: "net",
+          maxUnits: ["KB/s", "MB/s", "GB/s", "Kbps", "Mbps", "Gbps"],
+          defaultMax: 100,
+          defaultMaxUnit: "MB/s",
+        },
+        { sep: true },
+        { id: "disk_usage", label: "Disk Usage", unit: "%", sub: "disk" },
+        {
+          id: "disk_read",
+          label: "Disk Read Speed",
+          unit: "/s",
+          sub: "disk",
+          maxUnits: ["KB/s", "MB/s", "GB/s", "Kbps", "Mbps", "Gbps"],
+          defaultMax: 500,
+          defaultMaxUnit: "MB/s",
+        },
+        {
+          id: "disk_write",
+          label: "Disk Write Speed",
+          unit: "/s",
+          sub: "disk",
+          maxUnits: ["KB/s", "MB/s", "GB/s", "Kbps", "Mbps", "Gbps"],
+          defaultMax: 500,
+          defaultMaxUnit: "MB/s",
+        },
+        {
+          id: "disk_rw",
+          label: "Disk R/W Speed",
+          unit: "/s",
+          sub: "disk",
+          maxUnits: ["KB/s", "MB/s", "GB/s", "Kbps", "Mbps", "Gbps"],
+          defaultMax: 500,
+          defaultMaxUnit: "MB/s",
+        },
+        { sep: true },
+        { id: "gpu_util", label: "GPU Utilization", unit: "%", sub: "gpu" },
+        {
+          id: "gpu_temp",
+          label: "GPU Temperature",
+          unit: "°C",
+          sub: "gpu",
+          maxUnits: ["°C"],
+          defaultMax: 100,
+          defaultMaxUnit: "°C",
+        },
+        {
+          id: "gpu_clock",
+          label: "GPU Clock",
+          unit: "MHz",
+          sub: "gpu",
+          maxUnits: ["MHz", "GHz"],
+          defaultMax: 3,
+          defaultMaxUnit: "GHz",
+        },
+        {
+          id: "gpu_power",
+          label: "GPU Power",
+          unit: "W",
+          sub: "gpu",
+          maxUnits: ["W"],
+          defaultMax: 500,
+          defaultMaxUnit: "W",
+        },
+        { id: "gpu_vram", label: "GPU VRAM Usage", unit: "%", sub: "gpu" },
+        { sep: true },
+        { id: "claude_5h", label: "Claude 5h Limit", unit: "%", sub: false },
+        { id: "claude_5h_reset", label: "Claude 5h Reset", unit: "%", sub: false },
+        { id: "claude_7d", label: "Claude 7d Limit", unit: "%", sub: false },
+        { id: "claude_7d_reset", label: "Claude 7d Reset", unit: "%", sub: false },
+        { sep: true },
+        {
+          id: "claude_code_msgs",
+          label: "Claude Code Messages Today",
+          unit: "",
+          sub: false,
+          maxUnits: [""],
+          defaultMax: 10000,
+          defaultMaxUnit: "",
+        },
+        {
+          id: "claude_code_tools",
+          label: "Claude Code Tool Calls Today",
+          unit: "",
+          sub: false,
+          maxUnits: [""],
+          defaultMax: 2000,
+          defaultMaxUnit: "",
+        },
+        {
+          id: "claude_code_tokens",
+          label: "Claude Code Tokens I/O Today",
+          unit: "",
+          sub: false,
+          maxUnits: ["K", "M"],
+          defaultMax: 300,
+          defaultMaxUnit: "K",
+        },
+      ];
 
-  let metricOptions = null;
-  let claudeUsage = null;
-  let claudeCodeStats = null;
-  let voltage = '3';
-  let gaugeCount = 3;
-  let isActive = true;
-  let pollingMs = 200;
-  let pollingTimer = null;
+      let metricOptions = null;
+      let claudeUsage = null;
+      let claudeCodeStats = null;
+      let voltage = "3";
+      let gaugeCount = 3;
+      let isActive = true;
+      let pollingMs = 200;
+      let pollingTimer = null;
 
-  // ── Gauge state ──
-  function initGaugeState(def) {
-    return { metricId: def.id, subIndex: "", maxValue: def.defaultMax || null, maxUnit: def.defaultMaxUnit || null };
-  }
-  const gaugeStates = [];
-  const METRIC_ITEMS = METRICS.filter(m => !m.sep);
-  for (let i = 0; i < 10; i++) gaugeStates.push(initGaugeState(METRIC_ITEMS[i]));
-
-  // ── Unit multipliers ──
-  function unitMultiplier(u) {
-    switch (u) {
-      case 'KB/s': return 1024;  case 'MB/s': return 1048576;  case 'GB/s': return 1073741824;
-      case 'Kbps': return 125;   case 'Mbps': return 125000;   case 'Gbps': return 125000000;
-      case 'GHz':  return 1000;
-      case 'K':    return 1000;  case 'M':    return 1000000;
-      default:     return 1;
-    }
-  }
-
-  const PY = 110; // needle pivot Y
-  function needleAngle(pct) {
-    const arcRad = (ARC_START + pct * ARC_RANGE) * Math.PI / 180;
-    return Math.atan2(R * Math.sin(arcRad), PY - CY + R * Math.cos(arcRad)) * 180 / Math.PI;
-  }
-
-  // ── SVG gauge template ──
-  const VOLTAGE_LABELS = { '3': [0, 33, 66, 100], '5': [0, 20, 40, 60, 80, 100] };
-
-  function createGaugeSVG() {
-    const rad = a => a * Math.PI / 180;
-    const ax1 = CX + R * Math.sin(rad(ARC_START)), ay1 = CY - R * Math.cos(rad(ARC_START));
-    const ax2 = CX + R * Math.sin(rad(ARC_END)),   ay2 = CY - R * Math.cos(rad(ARC_END));
-    const labelPcts = VOLTAGE_LABELS[voltage] || VOLTAGE_LABELS['3'];
-
-    let ticks = '';
-    const divs = voltage === '3' ? 10 : 5;
-    // minor ticks between each pair of major ticks
-    for (let i = 0; i < labelPcts.length - 1; i++) {
-      const seg0 = labelPcts[i], seg1 = labelPcts[i + 1], step = (seg1 - seg0) / divs;
-      for (let j = 1; j < divs; j++) {
-        const pct = seg0 + j * step;
-        const a = ARC_START + (pct / 100) * ARC_RANGE, r = rad(a);
-        const isMid = voltage === '3' && j === 5;
-        const outerR = isMid ? R + 11 : R + 7;
-        ticks += `<line x1="${CX+(R+1)*Math.sin(r)}" y1="${CY-(R+1)*Math.cos(r)}" x2="${CX+outerR*Math.sin(r)}" y2="${CY-outerR*Math.cos(r)}" class="${isMid ? 'gauge-tick-mid' : 'gauge-tick'}"/>`;
+      // ── Gauge state ──
+      function initGaugeState(def) {
+        return {
+          metricId: def.id,
+          subIndex: "",
+          maxValue: def.defaultMax || null,
+          maxUnit: def.defaultMaxUnit || null,
+        };
       }
-    }
-    // major ticks with labels
-    for (let i = 0; i < labelPcts.length; i++) {
-      const pct = labelPcts[i];
-      const a = ARC_START + (pct / 100) * ARC_RANGE, r = rad(a);
-      ticks += `<line x1="${CX+(R+1)*Math.sin(r)}" y1="${CY-(R+1)*Math.cos(r)}" x2="${CX+(R+14)*Math.sin(r)}" y2="${CY-(R+14)*Math.cos(r)}" class="gauge-tick-major"/>`;
-      const rl = R + 22;
-      ticks += `<text x="${CX+rl*Math.sin(r)}" y="${CY-rl*Math.cos(r)}" class="gauge-tick-label" text-anchor="middle" dominant-baseline="central">${i}</text>`;
-    }
-    return `<svg class="gauge-svg" viewBox="0 0 200 160">
+      const gaugeStates = [];
+      const METRIC_ITEMS = METRICS.filter((m) => !m.sep);
+      for (let i = 0; i < 7; i++) gaugeStates.push(initGaugeState(METRIC_ITEMS[i]));
+
+      // ── Unit multipliers ──
+      function unitMultiplier(u) {
+        switch (u) {
+          case "KB/s":
+            return 1024;
+          case "MB/s":
+            return 1048576;
+          case "GB/s":
+            return 1073741824;
+          case "Kbps":
+            return 125;
+          case "Mbps":
+            return 125000;
+          case "Gbps":
+            return 125000000;
+          case "GHz":
+            return 1000;
+          case "K":
+            return 1000;
+          case "M":
+            return 1000000;
+          default:
+            return 1;
+        }
+      }
+
+      const PY = 110; // needle pivot Y
+      function needleAngle(pct) {
+        const arcRad = ((ARC_START + pct * ARC_RANGE) * Math.PI) / 180;
+        return (Math.atan2(R * Math.sin(arcRad), PY - CY + R * Math.cos(arcRad)) * 180) / Math.PI;
+      }
+
+      // ── SVG gauge template ──
+      const VOLTAGE_LABELS = { 3: [0, 33, 66, 100], 5: [0, 20, 40, 60, 80, 100] };
+
+      function createGaugeSVG() {
+        const rad = (a) => (a * Math.PI) / 180;
+        const ax1 = CX + R * Math.sin(rad(ARC_START)),
+          ay1 = CY - R * Math.cos(rad(ARC_START));
+        const ax2 = CX + R * Math.sin(rad(ARC_END)),
+          ay2 = CY - R * Math.cos(rad(ARC_END));
+        const labelPcts = VOLTAGE_LABELS[voltage] || VOLTAGE_LABELS["3"];
+
+        let ticks = "";
+        const divs = voltage === "3" ? 10 : 5;
+        // minor ticks between each pair of major ticks
+        for (let i = 0; i < labelPcts.length - 1; i++) {
+          const seg0 = labelPcts[i],
+            seg1 = labelPcts[i + 1],
+            step = (seg1 - seg0) / divs;
+          for (let j = 1; j < divs; j++) {
+            const pct = seg0 + j * step;
+            const a = ARC_START + (pct / 100) * ARC_RANGE,
+              r = rad(a);
+            const isMid = voltage === "3" && j === 5;
+            const outerR = isMid ? R + 11 : R + 7;
+            ticks += `<line x1="${CX + (R + 1) * Math.sin(r)}" y1="${CY - (R + 1) * Math.cos(r)}" x2="${CX + outerR * Math.sin(r)}" y2="${CY - outerR * Math.cos(r)}" class="${isMid ? "gauge-tick-mid" : "gauge-tick"}"/>`;
+          }
+        }
+        // major ticks with labels
+        for (let i = 0; i < labelPcts.length; i++) {
+          const pct = labelPcts[i];
+          const a = ARC_START + (pct / 100) * ARC_RANGE,
+            r = rad(a);
+          ticks += `<line x1="${CX + (R + 1) * Math.sin(r)}" y1="${CY - (R + 1) * Math.cos(r)}" x2="${CX + (R + 14) * Math.sin(r)}" y2="${CY - (R + 14) * Math.cos(r)}" class="gauge-tick-major"/>`;
+          const rl = R + 22;
+          ticks += `<text x="${CX + rl * Math.sin(r)}" y="${CY - rl * Math.cos(r)}" class="gauge-tick-label" text-anchor="middle" dominant-baseline="central">${i}</text>`;
+        }
+        return `<svg class="gauge-svg" viewBox="0 0 200 160">
       <path d="M ${ax1} ${ay1} A ${R} ${R} 0 0 1 ${ax2} ${ay2}" class="gauge-track"/>
       ${ticks}
       <polygon class="gauge-needle" data-needle points="99.5,50 100.5,50 101.5,108 98.5,108" style="transform:rotate(${needleAngle(0)}deg)"/>
@@ -412,369 +839,504 @@
       <text x="${CX}" y="150" class="gauge-value" text-anchor="middle" data-value>--</text>
       <text x="140" y="150" class="gauge-unit" text-anchor="start" data-unit></text>
     </svg>`;
-  }
+      }
 
-  // ── Build gauge cards ──
-  const grid = document.getElementById('gauge-grid');
+      // ── Build gauge cards ──
+      const grid = document.getElementById("gauge-grid");
 
-  function buildCards() {
-    grid.innerHTML = '';
-    for (let i = 0; i < 10; i++) {
-      const card = document.createElement('div');
-      card.className = 'gauge-card' + (i >= gaugeCount ? ' hidden' : '');
-      card.id = `gauge-${i}`;
-      card.innerHTML = createGaugeSVG() + `
+      function buildCards() {
+        grid.innerHTML = "";
+        for (let i = 0; i < 7; i++) {
+          const card = document.createElement("div");
+          card.className = "gauge-card" + (i >= gaugeCount ? " hidden" : "");
+          card.id = `gauge-${i}`;
+          card.innerHTML =
+            createGaugeSVG() +
+            `
         <div class="gauge-selectors">
           <div class="ctrl-row"><label>Metric</label><select data-metric-select="${i}"></select></div>
           <div class="ctrl-row hidden" data-sub-row="${i}"><label>Target</label><select data-sub-select="${i}"></select></div>
           <div class="ctrl-row hidden" data-max-row="${i}"><label>Max</label><input type="number" data-max-value="${i}" step="any" min="0"><select class="max-unit" data-max-unit="${i}"></select></div>
         </div>`;
-      grid.appendChild(card);
+          grid.appendChild(card);
 
-      const metricSel = card.querySelector(`[data-metric-select="${i}"]`);
-      METRICS.forEach(m => {
-        if (m.sep) { const o = document.createElement('option'); o.disabled = true; o.textContent = '──────────'; metricSel.appendChild(o); return; }
-        const o = document.createElement('option'); o.value = m.id; o.textContent = m.label; metricSel.appendChild(o);
-      });
-      metricSel.value = gaugeStates[i].metricId;
-
-      metricSel.addEventListener('change', () => {
-        const def = METRIC_ITEMS.find(m => m.id === metricSel.value);
-        gaugeStates[i] = initGaugeState(def);
-        updateSubDropdown(i); updateMaxRow(i); saveConfig();
-      });
-
-      const maxIn = card.querySelector(`[data-max-value="${i}"]`);
-      const maxU  = card.querySelector(`[data-max-unit="${i}"]`);
-      maxIn.addEventListener('input', () => { const v = parseFloat(maxIn.value); if (!isNaN(v) && v > 0) gaugeStates[i].maxValue = v; saveConfig(); });
-      maxU.addEventListener('change', () => { gaugeStates[i].maxUnit = maxU.value; saveConfig(); });
-    }
-    updateAllControls();
-  }
-
-  // ── Sub-option dropdowns ──
-  function getSubOptions(def) {
-    if (!metricOptions || !def.sub) return null;
-    switch (def.sub) {
-      case 'core': return Array.from({ length: metricOptions.cpu_core_count }, (_, i) => `Core ${i}`);
-      case 'net':  return metricOptions.network_interfaces;
-      case 'disk': return metricOptions.disk_names;
-      case 'gpu':  return metricOptions.gpu_names;
-      default:     return null;
-    }
-  }
-
-  function updateSubDropdown(i) {
-    const card = document.getElementById(`gauge-${i}`); if (!card) return;
-    const row = card.querySelector(`[data-sub-row="${i}"]`), sel = card.querySelector(`[data-sub-select="${i}"]`);
-    const opts = getSubOptions(METRIC_ITEMS.find(m => m.id === gaugeStates[i].metricId));
-    if (!opts || !opts.length) { row.classList.add('hidden'); sel.innerHTML = ''; return; }
-    row.classList.remove('hidden'); sel.innerHTML = '';
-    opts.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
-    if (!opts.includes(gaugeStates[i].subIndex)) gaugeStates[i].subIndex = opts[0];
-    sel.value = gaugeStates[i].subIndex;
-    sel.onchange = () => { gaugeStates[i].subIndex = sel.value; saveConfig(); };
-  }
-
-  // ── Max value row ──
-  function updateMaxRow(i) {
-    const card = document.getElementById(`gauge-${i}`); if (!card) return;
-    const row = card.querySelector(`[data-max-row="${i}"]`);
-    const inp = card.querySelector(`[data-max-value="${i}"]`), usel = card.querySelector(`[data-max-unit="${i}"]`);
-    const def = METRIC_ITEMS.find(m => m.id === gaugeStates[i].metricId);
-    if (!def.maxUnits) { row.classList.add('hidden'); return; }
-    row.classList.remove('hidden'); usel.innerHTML = '';
-    def.maxUnits.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; usel.appendChild(o); });
-    inp.value = gaugeStates[i].maxValue; usel.value = gaugeStates[i].maxUnit;
-  }
-
-  function updateAllControls() { for (let i = 0; i < 10; i++) { updateSubDropdown(i); updateMaxRow(i); } }
-
-  function claudeResetPct(resetAt, totalMin) {
-    if (!resetAt) return null;
-    const remaining = (new Date(resetAt) - Date.now()) / 60000;
-    return Math.max(0, Math.min(100, (1 - remaining / totalMin) * 100));
-  }
-
-  // ── Extract value ──
-  function extractValue(m, id, si) {
-    // Claude metrics (separate data source)
-    switch (id) {
-      case 'claude_5h':        return claudeUsage?.five_hour?.utilization ?? null;
-      case 'claude_5h_reset':  return claudeResetPct(claudeUsage?.five_hour?.resets_at, 5 * 60);
-      case 'claude_7d':        return claudeUsage?.seven_day?.utilization ?? null;
-      case 'claude_7d_reset':  return claudeResetPct(claudeUsage?.seven_day?.resets_at, 7 * 24 * 60);
-      case 'claude_7d_sonnet': return claudeUsage?.seven_day_sonnet?.utilization ?? null;
-      case 'claude_code_msgs':   return claudeCodeStats?.messages ?? null;
-      case 'claude_code_tools':  return claudeCodeStats?.tool_calls ?? null;
-      case 'claude_code_tokens': return claudeCodeStats?.tokens ?? null;
-    }
-    // System metrics
-    if (!m) return null;
-    const coreIdx = (typeof si === 'string' && si.startsWith('Core ')) ? parseInt(si.slice(5)) : null;
-    switch (id) {
-      case 'cpu_usage':      return m.cpu.usage;
-      case 'cpu_core_usage': return coreIdx != null ? (m.cpu.cores[coreIdx]?.usage ?? null) : null;
-      case 'cpu_temp':       return m.cpu.temperature ?? null;
-      case 'cpu_core_freq':  return coreIdx != null ? (m.cpu.cores[coreIdx]?.frequency ?? null) : null;
-      case 'cpu_power':     return m.cpu.power_watts ?? null;
-      case 'mem_usage':      return m.memory.usage_percent;
-      case 'swap_usage':     return m.swap.usage_percent;
-      case 'net_rx':    { const f = m.network.interfaces.find(i => i.name === si); return f ? f.rx_bytes_per_sec : null; }
-      case 'net_tx':    { const f = m.network.interfaces.find(i => i.name === si); return f ? f.tx_bytes_per_sec : null; }
-      case 'net_rxtx':  { const f = m.network.interfaces.find(i => i.name === si); return f ? f.rx_bytes_per_sec + f.tx_bytes_per_sec : null; }
-      case 'disk_usage':{ const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.usage_percent : null; }
-      case 'disk_read': { const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.read_bytes_per_sec : null; }
-      case 'disk_write':{ const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.write_bytes_per_sec : null; }
-      case 'disk_rw':   { const d = m.disk.disks.find(d => `${d.name} (${d.mount_point})` === si); return d ? d.read_bytes_per_sec + d.write_bytes_per_sec : null; }
-      case 'gpu_util':  { const g = m.gpus.find(g => g.name === si); return g?.utilization ?? null; }
-      case 'gpu_temp':  { const g = m.gpus.find(g => g.name === si); return g?.temperature ?? null; }
-      case 'gpu_vram':  { const g = m.gpus.find(g => g.name === si); return (g && g.memory_total != null && g.memory_used != null) ? (g.memory_used / g.memory_total) * 100 : null; }
-      case 'gpu_clock': { const g = m.gpus.find(g => g.name === si); return g?.clock_mhz ?? null; }
-      case 'gpu_power': { const g = m.gpus.find(g => g.name === si); return g?.power_watts ?? null; }
-      default:          return null;
-    }
-  }
-
-  function getEffectiveMax(gi, def) {
-    if (def.unit === '%') return 100;
-    const v = gaugeStates[gi].maxValue;
-    return (v && v > 0) ? v * unitMultiplier(gaugeStates[gi].maxUnit) : 1;
-  }
-
-  function formatDisplay(value, def, st) {
-    if (value == null) return { text: '--', unit: '' };
-    if (def.unit === '%') return { text: value.toFixed(1), unit: '%' };
-    const mul = unitMultiplier(st.maxUnit);
-    if (mul === 1 && !st.maxUnit) {
-      // No unit (e.g. messages, tool calls) - show raw integer
-      return { text: Math.round(value).toString(), unit: '' };
-    }
-    const d = value / mul;
-    const text = d >= 100 ? Math.round(d).toString() : d >= 10 ? d.toFixed(1) : d.toFixed(2);
-    return { text, unit: st.maxUnit || def.unit };
-  }
-
-  function updateGauge(gi, metrics) {
-    const card = document.getElementById(`gauge-${gi}`);
-    if (!card || card.classList.contains('hidden')) return 0;
-    const st = gaugeStates[gi], def = METRIC_ITEMS.find(m => m.id === st.metricId);
-    const value = extractValue(metrics, st.metricId, st.subIndex);
-    const pct = value != null ? Math.min(Math.max(value / getEffectiveMax(gi, def), 0), 1) : 0;
-    card.querySelector('[data-needle]').style.transform = `rotate(${needleAngle(pct)}deg)`;
-    const fmt = formatDisplay(value, def, st);
-    card.querySelector('[data-value]').textContent = fmt.text;
-    card.querySelector('[data-unit]').textContent = fmt.unit;
-    return pct;
-  }
-
-  // ── Gauge count ──
-  const gaugeCountSel = document.getElementById('gauge-count-select');
-  function updateGaugeVisibility() {
-    for (let i = 0; i < 10; i++) { const c = document.getElementById(`gauge-${i}`); if (c) c.classList.toggle('hidden', i >= gaugeCount); }
-  }
-  gaugeCountSel.addEventListener('change', () => { gaugeCount = parseInt(gaugeCountSel.value); updateGaugeVisibility(); saveConfig(); });
-
-  // ── Polling ──
-  function needsClaudeApi() {
-    for (let i = 0; i < gaugeCount; i++) {
-      const id = gaugeStates[i].metricId;
-      if (id.startsWith('claude_') && !id.startsWith('claude_code_')) return true;
-    }
-    return false;
-  }
-
-  async function poll() {
-    try {
-      const metrics = await invoke('get_metrics');
-      if (needsClaudeApi())
-        claudeUsage = await invoke('get_claude_usage').catch(() => null);
-      const data = [];
-      const vBit = voltage === '5' ? 1 : 0;
-      for (let i = 0; i < gaugeCount; i++) {
-        const pct = updateGauge(i, metrics);
-        const pctVal = Math.round(pct * 1023) & 0x3FF;
-        data.push((vBit << 15) | ((i & 0x1F) << 10) | pctVal);
-      }
-      if (serialPortSel.value) {
-        invoke('send_serial_data', { data }).catch(() => {});
-      }
-    } catch {}
-  }
-
-  function startPolling() {
-    stopPolling();
-    if (!isActive) return;
-    poll();
-    pollingTimer = setInterval(poll, pollingMs);
-  }
-
-  function stopPolling() {
-    if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
-  }
-
-  // ── Active toggle ──
-  const toggleActive = document.getElementById('toggle-active');
-  toggleActive.addEventListener('change', () => {
-    isActive = toggleActive.checked;
-    grid.classList.toggle('paused', !isActive);
-    if (isActive) startPolling(); else stopPolling();
-    saveConfig();
-  });
-
-  // ── Voltage ──
-  const voltageSel = document.getElementById('voltage-select');
-  voltageSel.addEventListener('change', () => {
-    voltage = voltageSel.value;
-    buildCards();
-    updateGaugeVisibility();
-    saveConfig();
-  });
-
-  // ── Interval ──
-  document.getElementById('interval-select').addEventListener('change', (e) => {
-    pollingMs = parseInt(e.target.value);
-    invoke('set_interval', { ms: pollingMs });
-    if (isActive) startPolling();
-    saveConfig();
-  });
-
-  // ── Serial port ──
-  const serialPortSel = document.getElementById('serial-port-select');
-  async function refreshSerialPorts() {
-    const ports = await invoke('list_serial_ports').catch(() => []);
-    const prev = serialPortSel.value;
-    serialPortSel.innerHTML = '<option value="" disabled selected>Serial Port</option>';
-    ports.forEach(p => {
-      const o = document.createElement('option');
-      o.value = p.port;
-      o.textContent = p.product ? `${p.port} (${p.product})` : p.port;
-      serialPortSel.appendChild(o);
-    });
-    if (prev && [...serialPortSel.options].some(o => o.value === prev)) serialPortSel.value = prev;
-  }
-  serialPortSel.addEventListener('focus', refreshSerialPorts);
-  serialPortSel.addEventListener('change', async () => {
-    await invoke('close_serial_port').catch(() => {});
-    const port = serialPortSel.value;
-    if (port) await invoke('open_serial_port', { port }).catch(() => {});
-  });
-
-  // ── Config save/load ──
-  let saveTimer = null;
-  function saveConfig() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      invoke('save_config', { config: {
-        active: isActive,
-        voltage: voltage,
-        intervalMs: pollingMs,
-        gaugeCount: gaugeCount,
-        gauges: gaugeStates.map(s => ({ metricId: s.metricId, subIndex: s.subIndex, maxValue: s.maxValue, maxUnit: s.maxUnit })),
-        claudeRefreshSecs: parseInt(claudeRefreshSel.value),
-        theme: document.body.classList.contains('light') ? 'light' : 'dark',
-      }});
-    }, 300);
-  }
-
-  // ── Theme toggle ──
-  const themeBtn = document.getElementById('theme-toggle');
-  function syncThemeIcon() {
-    const light = document.body.classList.contains('light');
-    themeBtn.querySelector('.icon-sun').classList.toggle('hidden', light);
-    themeBtn.querySelector('.icon-moon').classList.toggle('hidden', !light);
-  }
-  syncThemeIcon();
-  themeBtn.addEventListener('click', () => {
-    document.body.classList.toggle('light');
-    syncThemeIcon();
-    saveConfig();
-  });
-
-  // ── Claude ──
-  const claudeRefreshSel = document.getElementById('claude-refresh-select');
-  claudeRefreshSel.addEventListener('change', () => {
-    invoke('set_claude_ttl', { secs: parseInt(claudeRefreshSel.value) });
-    saveConfig();
-  });
-
-  document.getElementById('open-claude-env').addEventListener('click', () => {
-    invoke('open_claude_env');
-  });
-  window.__TAURI__.event.listen('claude-env-changed', () => {
-    claudeUsage = null;
-  });
-  window.__TAURI__.event.listen('claude-code-stats-changed', (e) => {
-    claudeCodeStats = e.payload;
-  });
-
-  // ── GitHub ──
-  document.getElementById('github-link').addEventListener('click', (e) => {
-    e.preventDefault();
-    window.__TAURI__.shell.open('https://github.com/luftaquila/pointify');
-  });
-
-  // ── Init ──
-  async function init() {
-    try {
-      const cfg = await invoke('load_config').catch(() => null);
-      if (cfg) {
-        if (cfg.theme === 'light') document.body.classList.add('light');
-        else document.body.classList.remove('light');
-        syncThemeIcon();
-
-        isActive = cfg.active;
-        toggleActive.checked = isActive;
-        grid.classList.toggle('paused', !isActive);
-
-        if (cfg.voltage) {
-          voltage = cfg.voltage;
-          voltageSel.value = voltage;
-        }
-
-        pollingMs = cfg.intervalMs;
-        document.getElementById('interval-select').value = pollingMs;
-
-        gaugeCount = cfg.gaugeCount;
-        gaugeCountSel.value = gaugeCount;
-
-        if (cfg.claudeRefreshSecs) {
-          claudeRefreshSel.value = cfg.claudeRefreshSecs;
-          invoke('set_claude_ttl', { secs: cfg.claudeRefreshSecs });
-        }
-
-        if (cfg.gauges) {
-          cfg.gauges.forEach((g, i) => {
-            if (i < 10) {
-              const valid = METRIC_ITEMS.some(m => m.id === g.metricId);
-              gaugeStates[i] = valid
-                ? { metricId: g.metricId, subIndex: g.subIndex, maxValue: g.maxValue, maxUnit: g.maxUnit }
-                : initGaugeState(METRIC_ITEMS[i % METRIC_ITEMS.length]);
+          const metricSel = card.querySelector(`[data-metric-select="${i}"]`);
+          METRICS.forEach((m) => {
+            if (m.sep) {
+              const o = document.createElement("option");
+              o.disabled = true;
+              o.textContent = "──────────";
+              metricSel.appendChild(o);
+              return;
             }
+            const o = document.createElement("option");
+            o.value = m.id;
+            o.textContent = m.label;
+            metricSel.appendChild(o);
+          });
+          metricSel.value = gaugeStates[i].metricId;
+
+          metricSel.addEventListener("change", () => {
+            const def = METRIC_ITEMS.find((m) => m.id === metricSel.value);
+            gaugeStates[i] = initGaugeState(def);
+            updateSubDropdown(i);
+            updateMaxRow(i);
+            saveConfig();
+          });
+
+          const maxIn = card.querySelector(`[data-max-value="${i}"]`);
+          const maxU = card.querySelector(`[data-max-unit="${i}"]`);
+          maxIn.addEventListener("input", () => {
+            const v = parseFloat(maxIn.value);
+            if (!isNaN(v) && v > 0) gaugeStates[i].maxValue = v;
+            saveConfig();
+          });
+          maxU.addEventListener("change", () => {
+            gaugeStates[i].maxUnit = maxU.value;
+            saveConfig();
           });
         }
+        updateAllControls();
       }
-    } catch {}
 
-    buildCards();
-    updateGaugeVisibility();
-    invoke('set_interval', { ms: pollingMs });
-    fetchOptions();
-    startPolling();
-  }
+      // ── Sub-option dropdowns ──
+      function getSubOptions(def) {
+        if (!metricOptions || !def.sub) return null;
+        switch (def.sub) {
+          case "core":
+            return Array.from({ length: metricOptions.cpu_core_count }, (_, i) => `Core ${i}`);
+          case "net":
+            return metricOptions.network_interfaces;
+          case "disk":
+            return metricOptions.disk_names;
+          case "gpu":
+            return metricOptions.gpu_names;
+          default:
+            return null;
+        }
+      }
 
-  let optionsRetries = 0;
-  async function fetchOptions() {
-    try {
-      metricOptions = await invoke('get_metric_options');
-      if (metricOptions.cpu_core_count === 0) { setTimeout(fetchOptions, 500); return; }
-      updateAllControls();
-      if (optionsRetries++ < 5) { setTimeout(fetchOptions, 1000); return; }
-    } catch { setTimeout(fetchOptions, 500); }
-  }
+      function updateSubDropdown(i) {
+        const card = document.getElementById(`gauge-${i}`);
+        if (!card) return;
+        const row = card.querySelector(`[data-sub-row="${i}"]`),
+          sel = card.querySelector(`[data-sub-select="${i}"]`);
+        const opts = getSubOptions(METRIC_ITEMS.find((m) => m.id === gaugeStates[i].metricId));
+        if (!opts || !opts.length) {
+          row.classList.add("hidden");
+          sel.innerHTML = "";
+          return;
+        }
+        row.classList.remove("hidden");
+        sel.innerHTML = "";
+        opts.forEach((n) => {
+          const o = document.createElement("option");
+          o.value = n;
+          o.textContent = n;
+          sel.appendChild(o);
+        });
+        if (!opts.includes(gaugeStates[i].subIndex)) gaugeStates[i].subIndex = opts[0];
+        sel.value = gaugeStates[i].subIndex;
+        sel.onchange = () => {
+          gaugeStates[i].subIndex = sel.value;
+          saveConfig();
+        };
+      }
 
-  init();
-})();
-</script>
-</body>
+      // ── Max value row ──
+      function updateMaxRow(i) {
+        const card = document.getElementById(`gauge-${i}`);
+        if (!card) return;
+        const row = card.querySelector(`[data-max-row="${i}"]`);
+        const inp = card.querySelector(`[data-max-value="${i}"]`),
+          usel = card.querySelector(`[data-max-unit="${i}"]`);
+        const def = METRIC_ITEMS.find((m) => m.id === gaugeStates[i].metricId);
+        if (!def.maxUnits) {
+          row.classList.add("hidden");
+          return;
+        }
+        row.classList.remove("hidden");
+        usel.innerHTML = "";
+        def.maxUnits.forEach((u) => {
+          const o = document.createElement("option");
+          o.value = u;
+          o.textContent = u;
+          usel.appendChild(o);
+        });
+        inp.value = gaugeStates[i].maxValue;
+        usel.value = gaugeStates[i].maxUnit;
+      }
+
+      function updateAllControls() {
+        for (let i = 0; i < 7; i++) {
+          updateSubDropdown(i);
+          updateMaxRow(i);
+        }
+      }
+
+      function claudeResetPct(resetAt, totalMin) {
+        if (!resetAt) return null;
+        const remaining = (new Date(resetAt) - Date.now()) / 60000;
+        return Math.max(0, Math.min(100, (1 - remaining / totalMin) * 100));
+      }
+
+      // ── Extract value ──
+      function extractValue(m, id, si) {
+        // Claude metrics (separate data source)
+        switch (id) {
+          case "claude_5h":
+            return claudeUsage?.five_hour?.utilization ?? null;
+          case "claude_5h_reset":
+            return claudeResetPct(claudeUsage?.five_hour?.resets_at, 5 * 60);
+          case "claude_7d":
+            return claudeUsage?.seven_day?.utilization ?? null;
+          case "claude_7d_reset":
+            return claudeResetPct(claudeUsage?.seven_day?.resets_at, 7 * 24 * 60);
+          case "claude_7d_sonnet":
+            return claudeUsage?.seven_day_sonnet?.utilization ?? null;
+          case "claude_code_msgs":
+            return claudeCodeStats?.messages ?? null;
+          case "claude_code_tools":
+            return claudeCodeStats?.tool_calls ?? null;
+          case "claude_code_tokens":
+            return claudeCodeStats?.tokens ?? null;
+        }
+        // System metrics
+        if (!m) return null;
+        const coreIdx = typeof si === "string" && si.startsWith("Core ") ? parseInt(si.slice(5)) : null;
+        switch (id) {
+          case "cpu_usage":
+            return m.cpu.usage;
+          case "cpu_core_usage":
+            return coreIdx != null ? (m.cpu.cores[coreIdx]?.usage ?? null) : null;
+          case "cpu_temp":
+            return m.cpu.temperature ?? null;
+          case "cpu_core_freq":
+            return coreIdx != null ? (m.cpu.cores[coreIdx]?.frequency ?? null) : null;
+          case "cpu_power":
+            return m.cpu.power_watts ?? null;
+          case "mem_usage":
+            return m.memory.usage_percent;
+          case "swap_usage":
+            return m.swap.usage_percent;
+          case "net_rx": {
+            const f = m.network.interfaces.find((i) => i.name === si);
+            return f ? f.rx_bytes_per_sec : null;
+          }
+          case "net_tx": {
+            const f = m.network.interfaces.find((i) => i.name === si);
+            return f ? f.tx_bytes_per_sec : null;
+          }
+          case "net_rxtx": {
+            const f = m.network.interfaces.find((i) => i.name === si);
+            return f ? f.rx_bytes_per_sec + f.tx_bytes_per_sec : null;
+          }
+          case "disk_usage": {
+            const d = m.disk.disks.find((d) => `${d.name} (${d.mount_point})` === si);
+            return d ? d.usage_percent : null;
+          }
+          case "disk_read": {
+            const d = m.disk.disks.find((d) => `${d.name} (${d.mount_point})` === si);
+            return d ? d.read_bytes_per_sec : null;
+          }
+          case "disk_write": {
+            const d = m.disk.disks.find((d) => `${d.name} (${d.mount_point})` === si);
+            return d ? d.write_bytes_per_sec : null;
+          }
+          case "disk_rw": {
+            const d = m.disk.disks.find((d) => `${d.name} (${d.mount_point})` === si);
+            return d ? d.read_bytes_per_sec + d.write_bytes_per_sec : null;
+          }
+          case "gpu_util": {
+            const g = m.gpus.find((g) => g.name === si);
+            return g?.utilization ?? null;
+          }
+          case "gpu_temp": {
+            const g = m.gpus.find((g) => g.name === si);
+            return g?.temperature ?? null;
+          }
+          case "gpu_vram": {
+            const g = m.gpus.find((g) => g.name === si);
+            return g && g.memory_total != null && g.memory_used != null ? (g.memory_used / g.memory_total) * 100 : null;
+          }
+          case "gpu_clock": {
+            const g = m.gpus.find((g) => g.name === si);
+            return g?.clock_mhz ?? null;
+          }
+          case "gpu_power": {
+            const g = m.gpus.find((g) => g.name === si);
+            return g?.power_watts ?? null;
+          }
+          default:
+            return null;
+        }
+      }
+
+      function getEffectiveMax(gi, def) {
+        if (def.unit === "%") return 100;
+        const v = gaugeStates[gi].maxValue;
+        return v && v > 0 ? v * unitMultiplier(gaugeStates[gi].maxUnit) : 1;
+      }
+
+      function formatDisplay(value, def, st) {
+        if (value == null) return { text: "--", unit: "" };
+        if (def.unit === "%") return { text: value.toFixed(1), unit: "%" };
+        const mul = unitMultiplier(st.maxUnit);
+        if (mul === 1 && !st.maxUnit) {
+          // No unit (e.g. messages, tool calls) - show raw integer
+          return { text: Math.round(value).toString(), unit: "" };
+        }
+        const d = value / mul;
+        const text = d >= 100 ? Math.round(d).toString() : d >= 10 ? d.toFixed(1) : d.toFixed(2);
+        return { text, unit: st.maxUnit || def.unit };
+      }
+
+      function updateGauge(gi, metrics) {
+        const card = document.getElementById(`gauge-${gi}`);
+        if (!card || card.classList.contains("hidden")) return 0;
+        const st = gaugeStates[gi],
+          def = METRIC_ITEMS.find((m) => m.id === st.metricId);
+        const value = extractValue(metrics, st.metricId, st.subIndex);
+        const pct = value != null ? Math.min(Math.max(value / getEffectiveMax(gi, def), 0), 1) : 0;
+        card.querySelector("[data-needle]").style.transform = `rotate(${needleAngle(pct)}deg)`;
+        const fmt = formatDisplay(value, def, st);
+        card.querySelector("[data-value]").textContent = fmt.text;
+        card.querySelector("[data-unit]").textContent = fmt.unit;
+        return pct;
+      }
+
+      // ── Gauge count ──
+      const gaugeCountSel = document.getElementById("gauge-count-select");
+      function updateGaugeVisibility() {
+        for (let i = 0; i < 7; i++) {
+          const c = document.getElementById(`gauge-${i}`);
+          if (c) c.classList.toggle("hidden", i >= gaugeCount);
+        }
+      }
+      gaugeCountSel.addEventListener("change", () => {
+        gaugeCount = parseInt(gaugeCountSel.value);
+        updateGaugeVisibility();
+        saveConfig();
+      });
+
+      // ── Polling ──
+      function needsClaudeApi() {
+        for (let i = 0; i < gaugeCount; i++) {
+          const id = gaugeStates[i].metricId;
+          if (id.startsWith("claude_") && !id.startsWith("claude_code_")) return true;
+        }
+        return false;
+      }
+
+      async function poll() {
+        try {
+          const metrics = await invoke("get_metrics");
+          if (needsClaudeApi()) claudeUsage = await invoke("get_claude_usage").catch(() => null);
+          const data = [];
+          const vBit = voltage === "5" ? 1 : 0;
+          for (let i = 0; i < gaugeCount; i++) {
+            const pct = updateGauge(i, metrics);
+            const pctVal = Math.round(pct * 1023) & 0x3ff;
+            data.push((vBit << 15) | ((i & 0x1f) << 10) | pctVal);
+          }
+          if (serialPortSel.value) {
+            invoke("send_serial_data", { data }).catch(() => {});
+          }
+        } catch {}
+      }
+
+      function startPolling() {
+        stopPolling();
+        if (!isActive) return;
+        poll();
+        pollingTimer = setInterval(poll, pollingMs);
+      }
+
+      function stopPolling() {
+        if (pollingTimer) {
+          clearInterval(pollingTimer);
+          pollingTimer = null;
+        }
+      }
+
+      // ── Active toggle ──
+      const toggleActive = document.getElementById("toggle-active");
+      toggleActive.addEventListener("change", () => {
+        isActive = toggleActive.checked;
+        grid.classList.toggle("paused", !isActive);
+        if (isActive) startPolling();
+        else stopPolling();
+        saveConfig();
+      });
+
+      // ── Voltage ──
+      const voltageSel = document.getElementById("voltage-select");
+      voltageSel.addEventListener("change", () => {
+        voltage = voltageSel.value;
+        buildCards();
+        updateGaugeVisibility();
+        saveConfig();
+      });
+
+      // ── Interval ──
+      document.getElementById("interval-select").addEventListener("change", (e) => {
+        pollingMs = parseInt(e.target.value);
+        invoke("set_interval", { ms: pollingMs });
+        if (isActive) startPolling();
+        saveConfig();
+      });
+
+      // ── Serial port ──
+      const serialPortSel = document.getElementById("serial-port-select");
+      async function refreshSerialPorts() {
+        const ports = await invoke("list_serial_ports").catch(() => []);
+        const prev = serialPortSel.value;
+        serialPortSel.innerHTML = '<option value="" disabled selected>Serial Port</option>';
+        ports.forEach((p) => {
+          const o = document.createElement("option");
+          o.value = p.port;
+          o.textContent = p.product ? `${p.port} (${p.product})` : p.port;
+          serialPortSel.appendChild(o);
+        });
+        if (prev && [...serialPortSel.options].some((o) => o.value === prev)) serialPortSel.value = prev;
+      }
+      serialPortSel.addEventListener("focus", refreshSerialPorts);
+      serialPortSel.addEventListener("change", async () => {
+        await invoke("close_serial_port").catch(() => {});
+        const port = serialPortSel.value;
+        if (port) await invoke("open_serial_port", { port }).catch(() => {});
+      });
+
+      // ── Config save/load ──
+      let saveTimer = null;
+      function saveConfig() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          invoke("save_config", {
+            config: {
+              active: isActive,
+              voltage: voltage,
+              intervalMs: pollingMs,
+              gaugeCount: gaugeCount,
+              gauges: gaugeStates.map((s) => ({
+                metricId: s.metricId,
+                subIndex: s.subIndex,
+                maxValue: s.maxValue,
+                maxUnit: s.maxUnit,
+              })),
+              claudeRefreshSecs: parseInt(claudeRefreshSel.value),
+              theme: document.body.classList.contains("light") ? "light" : "dark",
+            },
+          });
+        }, 300);
+      }
+
+      // ── Theme toggle ──
+      const themeBtn = document.getElementById("theme-toggle");
+      function syncThemeIcon() {
+        const light = document.body.classList.contains("light");
+        themeBtn.querySelector(".icon-sun").classList.toggle("hidden", light);
+        themeBtn.querySelector(".icon-moon").classList.toggle("hidden", !light);
+      }
+      syncThemeIcon();
+      themeBtn.addEventListener("click", () => {
+        document.body.classList.toggle("light");
+        syncThemeIcon();
+        saveConfig();
+      });
+
+      // ── Claude ──
+      const claudeRefreshSel = document.getElementById("claude-refresh-select");
+      claudeRefreshSel.addEventListener("change", () => {
+        invoke("set_claude_ttl", { secs: parseInt(claudeRefreshSel.value) });
+        saveConfig();
+      });
+
+      document.getElementById("open-claude-env").addEventListener("click", () => {
+        invoke("open_claude_env");
+      });
+      window.__TAURI__.event.listen("claude-env-changed", () => {
+        claudeUsage = null;
+      });
+      window.__TAURI__.event.listen("claude-code-stats-changed", (e) => {
+        claudeCodeStats = e.payload;
+      });
+
+      // ── GitHub ──
+      document.getElementById("github-link").addEventListener("click", (e) => {
+        e.preventDefault();
+        window.__TAURI__.shell.open("https://github.com/luftaquila/pointify");
+      });
+
+      // ── Init ──
+      async function init() {
+        try {
+          const cfg = await invoke("load_config").catch(() => null);
+          if (cfg) {
+            if (cfg.theme === "light") document.body.classList.add("light");
+            else document.body.classList.remove("light");
+            syncThemeIcon();
+
+            isActive = cfg.active;
+            toggleActive.checked = isActive;
+            grid.classList.toggle("paused", !isActive);
+
+            if (cfg.voltage) {
+              voltage = cfg.voltage;
+              voltageSel.value = voltage;
+            }
+
+            pollingMs = cfg.intervalMs;
+            document.getElementById("interval-select").value = pollingMs;
+
+            gaugeCount = cfg.gaugeCount;
+            gaugeCountSel.value = gaugeCount;
+
+            if (cfg.claudeRefreshSecs) {
+              claudeRefreshSel.value = cfg.claudeRefreshSecs;
+              invoke("set_claude_ttl", { secs: cfg.claudeRefreshSecs });
+            }
+
+            if (cfg.gauges) {
+              cfg.gauges.forEach((g, i) => {
+                if (i < 7) {
+                  const valid = METRIC_ITEMS.some((m) => m.id === g.metricId);
+                  gaugeStates[i] = valid
+                    ? { metricId: g.metricId, subIndex: g.subIndex, maxValue: g.maxValue, maxUnit: g.maxUnit }
+                    : initGaugeState(METRIC_ITEMS[i % METRIC_ITEMS.length]);
+                }
+              });
+            }
+          }
+        } catch {}
+
+        buildCards();
+        updateGaugeVisibility();
+        invoke("set_interval", { ms: pollingMs });
+        fetchOptions();
+        startPolling();
+      }
+
+      let optionsRetries = 0;
+      async function fetchOptions() {
+        try {
+          metricOptions = await invoke("get_metric_options");
+          if (metricOptions.cpu_core_count === 0) {
+            setTimeout(fetchOptions, 500);
+            return;
+          }
+          updateAllControls();
+          if (optionsRetries++ < 5) {
+            setTimeout(fetchOptions, 1000);
+            return;
+          }
+        } catch {
+          setTimeout(fetchOptions, 500);
+        }
+      }
+
+      init();
+    })();
+    </script>
+  </body>
 </html>
