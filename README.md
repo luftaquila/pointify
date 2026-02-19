@@ -37,9 +37,11 @@ Up to 7 gauges with customizable metrics:
     - Weekly limit
     - Weekly reset time
   - Claude Code stats
-    - Today's messages
-    - Today's tool calls
-    - Today's tokens (I/O)
+    - Today's total tokens (with cache)
+    - Today's I/O tokens
+    - Today's input / output tokens
+    - Today's cache write / read tokens
+    - Today's cost ($)
 
 ## Usage
 
@@ -55,10 +57,12 @@ Up to 7 gauges with customizable metrics:
 
 ### Optional setup
 
-To fetch Claude usage stats (5h session and weekly limits), Pointify needs your browser credentials.
+To fetch Claude usage limits (5h session and weekly), Pointify needs your browser credentials.
+
+Claude Code stats are collected from local logs and do not require credentials.
 
 > [!IMPORTANT]
-> Credentials are NOT sent to any remote server. They are only used locally to fetch usage data from Claude.
+> Credentials are stored locally and only used to fetch usage data directly from Claude. No information is sent to any third-party server.
 > See the `get_claude_usage` function in [lib.rs](https://github.com/luftaquila/pointify/blob/v2/gui/src-tauri/src/lib.rs) for details.
 
 > [!TIP]

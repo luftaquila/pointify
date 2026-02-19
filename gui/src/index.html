@@ -711,31 +711,67 @@
         { id: "claude_7d_reset", label: "Claude 7d Reset", unit: "%", sub: false },
         { sep: true },
         {
-          id: "claude_code_msgs",
-          label: "Claude Code Messages Today",
-          unit: "",
-          sub: false,
-          maxUnits: [""],
-          defaultMax: 10000,
-          defaultMaxUnit: "",
-        },
-        {
-          id: "claude_code_tools",
-          label: "Claude Code Tool Calls Today",
-          unit: "",
-          sub: false,
-          maxUnits: [""],
-          defaultMax: 2000,
-          defaultMaxUnit: "",
-        },
-        {
           id: "claude_code_tokens",
-          label: "Claude Code Tokens I/O Today",
+          label: "Claude Code Total Tokens Today",
           unit: "",
           sub: false,
           maxUnits: ["K", "M"],
-          defaultMax: 300,
+          defaultMax: 10,
+          defaultMaxUnit: "M",
+        },
+        {
+          id: "claude_code_io_tokens",
+          label: "Claude Code I/O Tokens Today",
+          unit: "",
+          sub: false,
+          maxUnits: ["K", "M"],
+          defaultMax: 100,
           defaultMaxUnit: "K",
+        },
+        {
+          id: "claude_code_input_tokens",
+          label: "Claude Code Input Tokens Today",
+          unit: "",
+          sub: false,
+          maxUnits: ["K", "M"],
+          defaultMax: 100,
+          defaultMaxUnit: "K",
+        },
+        {
+          id: "claude_code_output_tokens",
+          label: "Claude Code Output Tokens Today",
+          unit: "",
+          sub: false,
+          maxUnits: ["K", "M"],
+          defaultMax: 100,
+          defaultMaxUnit: "K",
+        },
+        {
+          id: "claude_code_cache_creation_tokens",
+          label: "Claude Code Cache Write Today",
+          unit: "",
+          sub: false,
+          maxUnits: ["K", "M"],
+          defaultMax: 5,
+          defaultMaxUnit: "M",
+        },
+        {
+          id: "claude_code_cache_read_tokens",
+          label: "Claude Code Cache Read Today",
+          unit: "",
+          sub: false,
+          maxUnits: ["K", "M"],
+          defaultMax: 5,
+          defaultMaxUnit: "M",
+        },
+        {
+          id: "claude_code_cost",
+          label: "Claude Code Cost Today",
+          unit: "$",
+          sub: false,
+          maxUnits: ["$", "K$"],
+          defaultMax: 50,
+          defaultMaxUnit: "$",
         },
       ];
 
@@ -994,12 +1030,20 @@
             return claudeResetPct(claudeUsage?.seven_day?.resets_at, 7 * 24 * 60);
           case "claude_7d_sonnet":
             return claudeUsage?.seven_day_sonnet?.utilization ?? null;
-          case "claude_code_msgs":
-            return claudeCodeStats?.messages ?? null;
-          case "claude_code_tools":
-            return claudeCodeStats?.tool_calls ?? null;
           case "claude_code_tokens":
-            return claudeCodeStats?.tokens ?? null;
+            return claudeCodeStats?.total_tokens ?? null;
+          case "claude_code_io_tokens":
+            return claudeCodeStats != null ? claudeCodeStats.input_tokens + claudeCodeStats.output_tokens : null;
+          case "claude_code_input_tokens":
+            return claudeCodeStats?.input_tokens ?? null;
+          case "claude_code_output_tokens":
+            return claudeCodeStats?.output_tokens ?? null;
+          case "claude_code_cache_creation_tokens":
+            return claudeCodeStats?.cache_creation_tokens ?? null;
+          case "claude_code_cache_read_tokens":
+            return claudeCodeStats?.cache_read_tokens ?? null;
+          case "claude_code_cost":
+            return claudeCodeStats?.total_cost ?? null;
         }
         // System metrics
         if (!m) return null;

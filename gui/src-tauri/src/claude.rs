@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -162,85 +163,172 @@ pub async fn fetch_org_id(
         .ok_or_else(|| "No organization found".to_string())
 }
 
-// ── Claude Code stats-cache.json ──
+// ── Claude Code JSONL usage (ccusage approach) ──
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StatsCache {
+struct JsonlEntry {
     #[serde(default)]
-    daily_activity: Vec<DailyActivity>,
+    timestamp: Option<String>,
     #[serde(default)]
-    daily_model_tokens: Vec<DailyModelTokens>,
+    message: Option<JsonlMessage>,
+    #[serde(default, rename = "costUSD")]
+    cost_usd: Option<f64>,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DailyActivity {
-    date: String,
+struct JsonlMessage {
     #[serde(default)]
-    message_count: u64,
+    usage: Option<JsonlUsage>,
     #[serde(default)]
-    tool_call_count: u64,
+    id: Option<String>,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DailyModelTokens {
-    date: String,
+struct JsonlUsage {
     #[serde(default)]
-    tokens_by_model: HashMap<String, u64>,
+    input_tokens: u64,
+    #[serde(default)]
+    output_tokens: u64,
+    #[serde(default)]
+    cache_creation_input_tokens: u64,
+    #[serde(default)]
+    cache_read_input_tokens: u64,
 }
 
 #[derive(Serialize, Clone)]
 pub struct ClaudeCodeStats {
-    pub messages: u64,
-    pub tool_calls: u64,
-    pub tokens: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub total_tokens: u64,
+    pub total_cost: f64,
 }
 
-fn read_today_stats() -> Option<ClaudeCodeStats> {
-    let home = dirs::home_dir()?;
-    let path = home.join(".claude").join("stats-cache.json");
-    let content = fs::read_to_string(path).ok()?;
-    let cache: StatsCache = serde_json::from_str(&content).ok()?;
-
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-
-    let (messages, tool_calls) = cache
-        .daily_activity
-        .iter()
-        .find(|a| a.date == today)
-        .map(|a| (a.message_count, a.tool_call_count))
-        .unwrap_or((0, 0));
-
-    let tokens = cache
-        .daily_model_tokens
-        .iter()
-        .find(|t| t.date == today)
-        .map(|t| t.tokens_by_model.values().sum())
-        .unwrap_or(0);
-
-    Some(ClaudeCodeStats {
-        messages,
-        tool_calls,
-        tokens,
-    })
+/// Return directories that may contain Claude Code JSONL conversation logs.
+fn jsonl_project_dirs() -> Vec<PathBuf> {
+    let mut result = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        result.push(home.join(".config").join("claude").join("projects"));
+        result.push(home.join(".claude").join("projects"));
+    }
+    if let Ok(custom) = std::env::var("CLAUDE_CONFIG_DIR") {
+        for dir in custom.split(',') {
+            let path = PathBuf::from(dir.trim()).join("projects");
+            if !result.contains(&path) {
+                result.push(path);
+            }
+        }
+    }
+    result
 }
 
-/// Watch ~/.claude/stats-cache.json for changes and emit stats to the frontend.
-pub fn start_watching_stats(app: tauri::AppHandle) {
-    let claude_dir = match dirs::home_dir() {
-        Some(h) => h.join(".claude"),
-        None => return,
+/// Check whether an ISO-8601 timestamp falls on today (local time).
+fn is_today(timestamp: &str) -> bool {
+    let today = chrono::Local::now().date_naive();
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+        return dt.with_timezone(&chrono::Local).date_naive() == today;
+    }
+    // Fallback: compare date prefix
+    let today_str = today.format("%Y-%m-%d").to_string();
+    timestamp.starts_with(&today_str)
+}
+
+fn read_today_stats() -> ClaudeCodeStats {
+    let today_naive = chrono::Local::now().date_naive();
+
+    let mut stats = ClaudeCodeStats {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: 0,
+        total_tokens: 0,
+        total_cost: 0.0,
     };
 
-    let stats_file = claude_dir.join("stats-cache.json");
+    let mut seen = HashSet::new();
 
-    std::thread::spawn(move || {
-        // Emit initial stats
-        if let Some(stats) = read_today_stats() {
-            let _ = app.emit("claude-code-stats-changed", stats);
+    for dir in jsonl_project_dirs() {
+        let pattern = match dir.join("**/*.jsonl").to_str() {
+            Some(p) => p.to_string(),
+            None => continue,
+        };
+
+        let entries = match glob::glob(&pattern) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        for path in entries.flatten() {
+            // Skip files not modified today
+            if let Ok(meta) = path.metadata() {
+                if let Ok(modified) = meta.modified() {
+                    let modified: chrono::DateTime<chrono::Local> = modified.into();
+                    if modified.date_naive() < today_naive {
+                        continue;
+                    }
+                }
+            }
+
+            let file = match fs::File::open(&path) {
+                Ok(f) => f,
+                Err(_) => continue,
+            };
+
+            for line in std::io::BufReader::new(file).lines() {
+                let line = match line {
+                    Ok(l) => l,
+                    Err(_) => continue,
+                };
+                if line.trim().is_empty() {
+                    continue;
+                }
+
+                let entry: JsonlEntry = match serde_json::from_str(&line) {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+
+                // Filter by today
+                match entry.timestamp.as_deref() {
+                    Some(ts) if is_today(ts) => {}
+                    _ => continue,
+                }
+
+                // Deduplicate by message id
+                if let Some(ref msg) = entry.message {
+                    if let Some(ref id) = msg.id {
+                        if !seen.insert(id.clone()) {
+                            continue;
+                        }
+                    }
+
+                    if let Some(ref usage) = msg.usage {
+                        stats.input_tokens += usage.input_tokens;
+                        stats.output_tokens += usage.output_tokens;
+                        stats.cache_creation_tokens += usage.cache_creation_input_tokens;
+                        stats.cache_read_tokens += usage.cache_read_input_tokens;
+                    }
+                }
+
+                if let Some(cost) = entry.cost_usd {
+                    stats.total_cost += cost;
+                }
+            }
         }
+    }
+
+    stats.total_tokens =
+        stats.input_tokens + stats.output_tokens + stats.cache_creation_tokens + stats.cache_read_tokens;
+
+    stats
+}
+
+/// Watch Claude Code JSONL directories for changes and emit stats to the frontend.
+/// Also re-emits periodically (every 30s) to handle frontend reloads.
+pub fn start_watching_stats(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let dirs = jsonl_project_dirs();
 
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
 
@@ -252,23 +340,28 @@ pub fn start_watching_stats(app: tauri::AppHandle) {
             }
         };
 
-        if let Err(e) = watcher.watch(claude_dir.as_path(), RecursiveMode::NonRecursive) {
-            eprintln!("Failed to watch ~/.claude: {}", e);
-            return;
+        for dir in &dirs {
+            if dir.exists() {
+                let _ = watcher.watch(dir, RecursiveMode::Recursive);
+            }
         }
 
-        for result in rx {
-            match result {
-                Ok(event) => {
-                    let dominated =
-                        matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_));
-                    if dominated && event.paths.iter().any(|p| p == &stats_file) {
-                        if let Some(stats) = read_today_stats() {
-                            let _ = app.emit("claude-code-stats-changed", stats);
-                        }
-                    }
+        let poll_interval = std::time::Duration::from_secs(30);
+        let debounce = std::time::Duration::from_secs(2);
+
+        loop {
+            // Emit current stats
+            let _ = app.emit("claude-code-stats-changed", read_today_stats());
+
+            // Wait for file change or timeout for periodic refresh
+            match rx.recv_timeout(poll_interval) {
+                Ok(_) => {
+                    // File changed — drain burst then debounce
+                    std::thread::sleep(debounce);
+                    while rx.try_recv().is_ok() {}
                 }
-                Err(e) => eprintln!("Stats watch error: {}", e),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
     });

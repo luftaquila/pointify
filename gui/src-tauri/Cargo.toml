@@ -18,6 +18,7 @@ opener = "0.8"
 serialport = "4"
 dirs = "6"
 chrono = "0.4"
+glob = "0.3"
 tauri-plugin-window-state = "2"
 
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
