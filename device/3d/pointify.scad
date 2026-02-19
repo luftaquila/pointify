@@ -267,7 +267,7 @@ module rotated_holes_with_cut_dividers() {
 module rotated_tabs() {
   rotate([-tilt_angle, 0, 0])for (r = [0:num_rows - 1]) {
     for (c = [0:num_cols - 1]) {
-      translate([gap + c * (hole_w + gap), tab_depth, margin_bot + r * (hole_h + gap)])
+      translate([gap + c * (hole_w + gap) + (hole_w - hole_sz) / 2, tab_depth, margin_bot + r * (hole_h + gap) + (hole_h - hole_sz) / 2])
         render_single_tab_set();
     }
   }
@@ -300,9 +300,9 @@ module shell_body() {
 // Helper: Front Tab Set (4 Tabs per Hole)
 module render_single_tab_set() {
   translate([0, 0, 0]) tab_shape_variable(tab_size_lower, tab_thick_lower, hole=true);
-  translate([hole_w, 0, 0]) mirror([1, 0, 0]) tab_shape_variable(tab_size_lower, tab_thick_lower, hole=true);
-  translate([0, 0, hole_h]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
-  translate([hole_w, 0, hole_h]) mirror([1, 0, 0]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
+  translate([hole_sz, 0, 0]) mirror([1, 0, 0]) tab_shape_variable(tab_size_lower, tab_thick_lower, hole=true);
+  translate([0, 0, hole_sz]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
+  translate([hole_sz, 0, hole_sz]) mirror([1, 0, 0]) mirror([0, 0, 1]) tab_shape_variable(tab_size_upper, tab_thick_upper, hole=false);
 }
 
 // Helper: Individual Tab Shape
