@@ -544,3 +544,43 @@ fn stall_ep0() {
         w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_STALL | UEP_R_TOG | UEP_R_RES_STALL);
     }
 }
+
+// Bootloader entry register addresses
+const FLASH_STATR: usize = 0x4002_200C;
+const FLASH_BOOT_MODEKEYR: usize = 0x4002_2028;
+const RCC_RSTSCKR: usize = 0x4002_1024;
+const PFIC_CFGR: usize = 0xE000_E048;
+
+/// Enter USB bootloader mode via software reset sequence.
+/// Unlocks BOOT_MODE, sets it, clears reset flags, then triggers software reset.
+pub fn enter_bootloader() -> ! {
+    unsafe {
+        // Disable all interrupts
+        core::arch::asm!("csrci mstatus, 8");
+
+        compiler_fence(Ordering::SeqCst);
+
+        // 1. Unlock BOOT_MODE by writing key sequence to FLASH_BOOT_MODEKEYR
+        w32(FLASH_BOOT_MODEKEYR, 0x45670123);
+        w32(FLASH_BOOT_MODEKEYR, 0xCDEF89AB);
+
+        compiler_fence(Ordering::SeqCst);
+
+        // 2. Set BOOT_MODE (bit 14) in FLASH_STATR
+        let val = (FLASH_STATR as *const u32).read_volatile();
+        w32(FLASH_STATR, val | (1 << 14));
+
+        compiler_fence(Ordering::SeqCst);
+
+        // 3. Clear all reset flags: set RMVF (bit 24) in RCC_RSTSCKR
+        let val = (RCC_RSTSCKR as *const u32).read_volatile();
+        w32(RCC_RSTSCKR, val | (1 << 24));
+
+        compiler_fence(Ordering::SeqCst);
+
+        // 4. Trigger software reset via PFIC_CFGR
+        w32(PFIC_CFGR, 0xBEEF0080);
+    }
+
+    loop {}
+}

@@ -91,6 +91,17 @@ async fn main(_spawner: Spawner) -> ! {
                     4 => pwm_tim3.set_duty(Channel::Ch1, duty_u32(value, max_duty_tim3, scale_3v)),
                     8 => pwm_tim1.set_duty(Channel::Ch3, duty_u16(value, max_duty_tim1, scale_3v)),
                     9 => pwm_tim1.set_duty(Channel::Ch1, duty_u16(value, max_duty_tim1, scale_3v)),
+                    31 if value == 0x3FF => {
+                        // Zero all PWMs as visual confirmation before bootloader
+                        pwm_tim2.set_duty(Channel::Ch1, 0);
+                        pwm_tim2.set_duty(Channel::Ch2, 0);
+                        pwm_tim2.set_duty(Channel::Ch3, 0);
+                        pwm_tim2.set_duty(Channel::Ch4, 0);
+                        pwm_tim3.set_duty(Channel::Ch1, 0);
+                        pwm_tim1.set_duty(Channel::Ch1, 0);
+                        pwm_tim1.set_duty(Channel::Ch3, 0);
+                        usb_cdc::enter_bootloader();
+                    }
                     _ => {}
                 }
             }

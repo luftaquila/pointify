@@ -479,6 +479,17 @@
           <select id="serial-port-select" style="width:100%; margin-top:4px;">
             <option value="" disabled selected>Serial Port</option>
           </select>
+          <button
+            id="firmware-update"
+            style="
+          width:100%; height:28px; margin-top:4px; padding:0 8px;
+          background:var(--bg-input); border:1px solid var(--border); border-radius:4px;
+          color:var(--accent); font-family:inherit; font-size:11px; cursor:pointer;
+          transition:background .3s,border-color .3s,color .3s;
+        "
+          >
+            Enter Bootloader
+          </button>
         </div>
 
         <div class="sidebar-section">
@@ -1249,6 +1260,23 @@
         await invoke("close_serial_port").catch(() => {});
         const port = serialPortSel.value;
         if (port) await invoke("open_serial_port", { port }).catch(() => {});
+      });
+
+      // ── Firmware update ──
+      document.getElementById("firmware-update").addEventListener("click", async () => {
+        const port = serialPortSel.value;
+        if (!port) return;
+        stopPolling();
+        await new Promise((r) => setTimeout(r, 500));
+        try { await invoke("close_serial_port"); } catch {}
+        await new Promise((r) => setTimeout(r, 300));
+        try {
+          await invoke("enter_firmware_update", { port });
+        } catch (e) {
+          alert("Firmware update failed: " + e);
+        }
+        serialPortSel.value = "";
+        startPolling();
       });
 
       // ── Config save/load ──

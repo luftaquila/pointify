@@ -106,6 +106,11 @@ fn list_serial_ports() -> Vec<SerialPortInfo> {
                 if !(usb.vid == 512 && usb.pid == 731) {
                     return None;
                 }
+                // On macOS, prefer /dev/cu.* over /dev/tty.* for reliable flush-on-close
+                #[cfg(target_os = "macos")]
+                if p.port_name.contains("/dev/tty.") {
+                    return None;
+                }
                 return Some(SerialPortInfo {
                     port: p.port_name,
                     product: usb.product.clone().unwrap_or_default(),
@@ -214,7 +219,21 @@ fn send_serial_data(data: Vec<u16>, serial: State<SharedSerial>) -> Result<(), S
     if let Some(port) = lock.as_mut() {
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_be_bytes()).collect();
         port.write_all(&bytes).map_err(|e| e.to_string())?;
+        port.flush().map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+#[tauri::command]
+fn enter_firmware_update(port: String) -> Result<(), String> {
+    // Raw file I/O — serialport crate's termios config prevents data delivery on macOS
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .open(&port)
+        .map_err(|e| format!("open({}): {}", port, e))?;
+    file.write_all(&[0x7F, 0xFF])
+        .map_err(|e| format!("write: {}", e))?;
+    file.flush().map_err(|e| format!("flush: {}", e))?;
     Ok(())
 }
 
@@ -274,6 +293,7 @@ pub fn run() {
             open_serial_port,
             close_serial_port,
             send_serial_data,
+            enter_firmware_update,
             load_config,
             save_config,
             open_claude_env,
