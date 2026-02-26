@@ -28,8 +28,8 @@ tolerance = 0.2;
 
 // [Cover & Screw Settings]
 cover_thickness = 3.0;
-m2_tap_radius = 0.85; // Body hole (M2 Tap)
-m2_clearance_radius = 1.1; // Cover hole (M2 Clearance)
+m2_tap_radius = 1.0; // Body hole (M2 Tap)
+m2_clearance_radius = 1.5; // Cover hole (M2 Clearance)
 m2_head_radius = 2.1; // Counterbore dia
 m2_head_depth = 2.0; // Counterbore depth
 
@@ -40,12 +40,12 @@ tab_fillet_r = 4.0;
 // [PCB & USB Settings]
 pcb_hole_dist = 17.15;
 pcb_dist_from_cover = 3.8;
-pcb_boss_height = 3.0;
+pcb_boss_height = 5.0;
 pcb_boss_dia = 5.0;
 patch_nut_height = 2.0;
 
-usb_w = 9.2;
-usb_h = 3.4;
+usb_w = 9.8;
+usb_h = 3.8;
 usb_r = usb_h / 2;
 
 // [Geometry Definition]
@@ -134,7 +134,7 @@ module lip_insert_counterbored() {
   // USB Position Calculation
   div_center_x = gap + hole_w + (gap / 2);
   pcb_bottom_z = floor_thickness + pcb_boss_height + patch_nut_height;
-  usb_center_z = pcb_bottom_z - (usb_h / 2);
+  usb_center_z = pcb_bottom_z - 1.7; // USB connector center (fixed)
 
   difference() {
     // Main Lip Body
