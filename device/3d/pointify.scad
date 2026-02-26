@@ -38,7 +38,7 @@ tab_depth_len = 4;
 tab_fillet_r = 4.0;
 
 // [PCB & USB Settings]
-pcb_hole_dist = 17.15;
+pcb_hole_dist = 16.14;
 pcb_dist_from_cover = 3.8;
 pcb_boss_height = 5.0;
 pcb_boss_dia = 5.0;
