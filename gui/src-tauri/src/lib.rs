@@ -13,7 +13,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, State, WindowEvent,
+    Emitter, Manager, State, WindowEvent,
 };
 
 use claude::{ClaudeCache, ClaudeUsageEntry};
@@ -270,6 +270,28 @@ fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     }
 }
 
+fn start_watching_serial(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let watch = match nusb::watch_devices() {
+            Ok(w) => w,
+            Err(_) => return,
+        };
+        for event in futures_lite::stream::block_on(watch) {
+            let dominated = match &event {
+                nusb::hotplug::HotplugEvent::Connected(dev) => {
+                    dev.vendor_id() == 0x0200 && dev.product_id() == 0x02DB
+                }
+                nusb::hotplug::HotplugEvent::Disconnected(_) => true,
+            };
+            if dominated {
+                // Small delay for OS to finish registering the device node
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                let _ = app.emit("serial-ports-changed", ());
+            }
+        }
+    });
+}
+
 pub fn run() {
     let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
@@ -350,6 +372,9 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            // Watch /dev for USB serial device changes
+            start_watching_serial(app.handle().clone());
 
             // Start hardware monitoring
             monitor::start_monitoring(shared_metrics, shared_interval);

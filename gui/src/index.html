@@ -585,6 +585,7 @@
     <script>
     (function () {
       const { invoke } = window.__TAURI__.core;
+      const { listen } = window.__TAURI__.event;
 
       // ── Constants ──
       const ARC_START = -45,
@@ -1253,9 +1254,20 @@
           o.textContent = p.product ? `${p.port} (${p.product})` : p.port;
           serialPortSel.appendChild(o);
         });
-        if (prev && [...serialPortSel.options].some((o) => o.value === prev)) serialPortSel.value = prev;
+        if (prev && ports.some((p) => p.port === prev)) {
+          serialPortSel.value = prev;
+        } else if (prev) {
+          // Device disconnected
+          serialPortSel.value = "";
+          await invoke("close_serial_port").catch(() => {});
+        } else if (ports.length === 1) {
+          // New device connected, auto-select
+          serialPortSel.value = ports[0].port;
+          await invoke("open_serial_port", { port: ports[0].port }).catch(() => {});
+        }
       }
-      serialPortSel.addEventListener("focus", refreshSerialPorts);
+      listen("serial-ports-changed", refreshSerialPorts);
+      refreshSerialPorts();
       serialPortSel.addEventListener("change", async () => {
         await invoke("close_serial_port").catch(() => {});
         const port = serialPortSel.value;
