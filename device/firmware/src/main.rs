@@ -40,6 +40,14 @@ async fn main(_spawner: Spawner) -> ! {
     pwm_tim2.enable(Channel::Ch3);
     pwm_tim2.enable(Channel::Ch4);
 
+    // Release PC19/DCK debug clock pin for GPIO/timer use
+    // AFIO_PCFR1 bits[26:24] = sw_cfg = 0b100 (disable debug, release pins)
+    unsafe {
+        let afio_pcfr1 = 0x4001_0004 as *mut u32;
+        let val = afio_pcfr1.read_volatile();
+        afio_pcfr1.write_volatile((val & !(0x07 << 24)) | (0x04 << 24));
+    }
+
     // TIM3 remap=2: PC19
     let ch1_t3 = PwmPin::new_ch1::<2>(p.PC19);
     let mut pwm_tim3 = SimplePwm::new(
