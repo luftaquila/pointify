@@ -67,11 +67,37 @@ async fn main(_spawner: Spawner) -> ! {
     pwm_tim1.enable(Channel::Ch1);
     pwm_tim1.enable(Channel::Ch3);
 
+    // HAL ComplementaryPwm doesn't work properly with N-only channels.
+    // Configure TIM1 entirely via raw registers.
+    const TIM1: usize = 0x4001_2C00;
+    unsafe {
+        // CR1: CEN (bit 0) = 1 — start counter
+        let cr1 = (TIM1 + 0x00) as *mut u32;
+        let v = cr1.read_volatile();
+        cr1.write_volatile(v | 1);
+        // CCMR1: OC1M = PWM mode 2 (0b111), OC1PE = 1
+        let ccmr1 = (TIM1 + 0x18) as *mut u32;
+        let v = ccmr1.read_volatile();
+        ccmr1.write_volatile((v & !(0x7 << 4)) | (0x7 << 4) | (1 << 3));
+        // CCMR2: OC3M = PWM mode 2 (0b111), OC3PE = 1
+        let ccmr2 = (TIM1 + 0x1C) as *mut u32;
+        let v = ccmr2.read_volatile();
+        ccmr2.write_volatile((v & !(0x7 << 4)) | (0x7 << 4) | (1 << 3));
+        // CCER: CC1NE (bit 2) = 1, CC3NE (bit 10) = 1
+        let ccer = (TIM1 + 0x20) as *mut u32;
+        let v = ccer.read_volatile();
+        ccer.write_volatile(v | (1 << 2) | (1 << 10));
+        // BDTR: MOE (bit 15) = 1
+        let bdtr = (TIM1 + 0x44) as *mut u32;
+        let v = bdtr.read_volatile();
+        bdtr.write_volatile(v | (1 << 15));
+    }
+
     usb_cdc::usb_init();
 
     let max_duty_tim2 = pwm_tim2.get_max_duty();
     let max_duty_tim3 = pwm_tim3.get_max_duty();
-    let max_duty_tim1 = pwm_tim1.get_max_duty();
+    let max_duty_tim1 = unsafe { ((TIM1 + 0x2C) as *const u32).read_volatile() as u16 }; // ARR
 
     let mut rx_buf = [0u8; 64];
     loop {
@@ -89,8 +115,8 @@ async fn main(_spawner: Spawner) -> ! {
                     2 => pwm_tim2.set_duty(Channel::Ch3, duty_u32(value, max_duty_tim2, scale_3v)),
                     3 => pwm_tim2.set_duty(Channel::Ch4, duty_u32(value, max_duty_tim2, scale_3v)),
                     4 => pwm_tim3.set_duty(Channel::Ch1, duty_u32(value, max_duty_tim3, scale_3v)),
-                    8 => pwm_tim1.set_duty(Channel::Ch3, duty_u16(value, max_duty_tim1, scale_3v)),
-                    9 => pwm_tim1.set_duty(Channel::Ch1, duty_u16(value, max_duty_tim1, scale_3v)),
+                    5 => unsafe { ((TIM1 + 0x3C) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR3 (PB1)
+                    6 => unsafe { ((TIM1 + 0x34) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR1 (PA7)
                     31 if value == 0x3FF => {
                         // Zero all PWMs as visual confirmation before bootloader
                         pwm_tim2.set_duty(Channel::Ch1, 0);
@@ -98,8 +124,8 @@ async fn main(_spawner: Spawner) -> ! {
                         pwm_tim2.set_duty(Channel::Ch3, 0);
                         pwm_tim2.set_duty(Channel::Ch4, 0);
                         pwm_tim3.set_duty(Channel::Ch1, 0);
-                        pwm_tim1.set_duty(Channel::Ch1, 0);
-                        pwm_tim1.set_duty(Channel::Ch3, 0);
+                        unsafe { ((TIM1 + 0x34) as *mut u32).write_volatile(0) }; // CCR1
+                        unsafe { ((TIM1 + 0x3C) as *mut u32).write_volatile(0) }; // CCR3
                         usb_cdc::enter_bootloader();
                     }
                     _ => {}
