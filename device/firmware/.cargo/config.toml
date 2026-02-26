@@ -2,7 +2,4 @@
 target = "riscv32imc-unknown-none-elf"
 
 [target.riscv32imc-unknown-none-elf]
-runner = "probe-rs run --chip CH32X033F8P6"
-
-# Alternative: use wlink instead of probe-rs
-# runner = "wlink flash --enable-sdi-print --watch-serial"
+runner = "wchisp flash"

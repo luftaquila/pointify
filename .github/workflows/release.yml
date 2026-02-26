@@ -110,7 +110,6 @@ jobs:
         run: |
           sudo snap install openscad-nightly
 
-
       - name: Generate STL files
         run: |
           models="1x2 1x3 1x4 1x5 1x6 1x7 2x2 2x3"

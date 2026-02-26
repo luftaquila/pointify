@@ -1,8 +1,7 @@
 #![allow(static_mut_refs)]
 
 use core::ptr::addr_of;
-
-use ch32_hal::pac;
+use core::sync::atomic::{compiler_fence, Ordering};
 
 // Endpoint sizes
 const EP0_SIZE: usize = 64;
@@ -10,15 +9,10 @@ const EP1_SIZE: usize = 8;
 const EP2_SIZE: usize = 64;
 const EP3_SIZE: usize = 64;
 
-// USB PID tokens (from int_st.mask_token)
-const PID_SETUP: u8 = 0b00;
-const PID_IN: u8 = 0b01;
-const PID_OUT: u8 = 0b10;
-
-// Endpoint response types (for t_res / r_res fields)
-const RES_ACK: u8 = 0;
-const RES_NAK: u8 = 2;
-const RES_STALL: u8 = 3;
+// USB PID tokens (from int_st bits [5:4], matching WCH SDK / ch32-metapac UsbToken)
+const PID_OUT: u8 = 0b00;   // 0
+const PID_IN: u8 = 0b10;    // 2
+const PID_SETUP: u8 = 0b11; // 3
 
 // USB standard request codes
 const USB_REQ_GET_STATUS: u8 = 0;
@@ -139,94 +133,125 @@ static STR_DESC_3: [u8; 10] = [
     b'0', 0, b'0', 0, b'0', 0, b'1', 0,
 ];
 
-fn usbd() -> pac::usb::Usbd {
-    unsafe { pac::usb::Usbd::from_ptr(pac::USBFS.as_ptr()) }
+// USBFS register base and offsets (all 8-bit except DMA which is 32-bit)
+const USB: usize = 0x4002_3400;
+const R_BASE_CTRL: usize = USB;           // 0x00
+const R_UDEV_CTRL: usize = USB + 0x01;
+const R_INT_EN: usize    = USB + 0x02;
+const R_DEV_ADDR: usize  = USB + 0x03;
+const R_INT_FG: usize    = USB + 0x06;
+const R_INT_ST: usize    = USB + 0x07;
+const R_RX_LEN: usize    = USB + 0x08;
+const R_UEP4_1_MOD: usize = USB + 0x0C;
+const R_UEP2_3_MOD: usize = USB + 0x0D;
+const R_UEP0_DMA: usize  = USB + 0x10;    // 32-bit
+const R_UEP1_DMA: usize  = USB + 0x14;
+const R_UEP2_DMA: usize  = USB + 0x18;
+const R_UEP3_DMA: usize  = USB + 0x1C;
+// Per-endpoint: TX_LEN at +0, TX_CTRL at +1, CTRL_H at +2
+const R_UEP0_TX_LEN: usize = USB + 0x20;
+const R_UEP0_CTRL_H: usize = USB + 0x22;
+const R_UEP1_TX_LEN: usize = USB + 0x24;
+const R_UEP1_CTRL_H: usize = USB + 0x26;
+const R_UEP2_CTRL_H: usize = USB + 0x2A;
+const R_UEP3_TX_LEN: usize = USB + 0x2C;
+const R_UEP3_CTRL_H: usize = USB + 0x2E;
+
+// CTRL_H bit definitions (matching WCH SDK)
+const UEP_T_RES_ACK: u8   = 0x00;
+const UEP_T_RES_NAK: u8   = 0x02;
+const UEP_T_RES_STALL: u8 = 0x03;
+const UEP_T_RES_MASK: u8  = 0x03;
+const UEP_R_RES_ACK: u8   = 0x00;
+const UEP_R_RES_NAK: u8   = 0x08;
+const UEP_R_RES_STALL: u8 = 0x0C;
+const UEP_T_TOG: u8       = 0x40;
+const UEP_R_TOG: u8       = 0x80;
+
+#[inline(always)]
+unsafe fn w8(addr: usize, val: u8) {
+    (addr as *mut u8).write_volatile(val);
+}
+
+#[inline(always)]
+unsafe fn r8(addr: usize) -> u8 {
+    (addr as *const u8).read_volatile()
+}
+
+#[inline(always)]
+unsafe fn w32(addr: usize, val: u32) {
+    (addr as *mut u32).write_volatile(val);
 }
 
 pub fn usb_init() {
-    let usb = usbd();
+    // Enable required clocks: AFIO (APB2 bit 0), GPIOC (APB2 bit 4), USBFS (AHB bit 12)
+    unsafe {
+        let rcc_apb2 = 0x4002_1018 as *mut u32;
+        let val = rcc_apb2.read_volatile();
+        rcc_apb2.write_volatile(val | (1 << 0) | (1 << 4));
 
-    // Enable USBFS clock
-    pac::RCC.ahbpcenr().modify(|w| w.set_usbfsen(true));
-
-    // Reset USB SIE
-    usb.ctrl().write(|w| {
-        w.set_reset_sie(true);
-        w.set_clr_all(true);
-    });
-    for _ in 0..100 {
-        unsafe { core::arch::asm!("nop") };
+        let rcc_ahb = 0x4002_1014 as *mut u32;
+        let val = rcc_ahb.read_volatile();
+        rcc_ahb.write_volatile(val | (1 << 12));
     }
-    usb.ctrl().write(|w| {
-        w.set_reset_sie(false);
-        w.set_clr_all(false);
-    });
 
-    // Set device address to 0
-    usb.dev_ad().write(|w| w.set_mask_usb_addr(0));
+    // GPIO: PC16=floating input (D-), PC17=floating input (D+)
+    // USB PHY controls these pins via AFIO USB_IOEN
+    unsafe {
+        let cfgxr = 0x4001_101C as *mut u32;
+        let val = cfgxr.read_volatile();
+        cfgxr.write_volatile((val & !0xFF) | 0x44);
+    }
 
-    // Configure EP DMA buffer addresses
-    usb.uep0123_dma(0)
-        .write_value(pac::usb::regs::UepDma(addr_of!(EP0_BUF) as u32));
-    usb.uep0123_dma(1)
-        .write_value(pac::usb::regs::UepDma(addr_of!(EP1_BUF) as u32));
-    usb.uep0123_dma(2)
-        .write_value(pac::usb::regs::UepDma(addr_of!(EP2_BUF) as u32));
-    usb.uep0123_dma(3)
-        .write_value(pac::usb::regs::UepDma(addr_of!(EP3_BUF) as u32));
+    // AFIO CTLR: USB_IOEN | USB_PHY_V33 | UDP_PUE_1K5 = 0xCC
+    unsafe {
+        let afio_ctlr = 0x4001_0018 as *mut u32;
+        let val = afio_ctlr.read_volatile();
+        afio_ctlr.write_volatile((val & !0xFF) | 0xCC);
+    }
 
-    // EP4/1 mode: EP1 TX enabled (CDC notification IN)
-    usb.uep4_1_mod().write(|w| {
-        w.set_tx_en(0, true); // EP1 TX
-    });
+    unsafe {
+        // BASE_CTRL = 0 (clear before config, no RESET_SIE)
+        w8(R_BASE_CTRL, 0x00);
 
-    // EP2/3 mode: EP2 RX enabled (bulk OUT), EP3 TX enabled (bulk IN)
-    usb.uep2_3_mod().write(|w| {
-        w.set_rx_en(0, true); // EP2 RX
-        w.set_tx_en(1, true); // EP3 TX
-    });
+        // --- Endpoint init ---
 
-    // EP0: NAK TX, ACK RX
-    usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(0).write(|w| {
-        w.set_t_res(RES_NAK);
-        w.set_r_res(RES_ACK);
-    });
+        // UEP4_1_MOD: EP1 TX enable = bit 6 (0x40)
+        w8(R_UEP4_1_MOD, 0x40);
+        // UEP2_3_MOD: EP2 RX enable (bit 3) | EP3 TX enable (bit 6) = 0x48
+        w8(R_UEP2_3_MOD, 0x08 | 0x40);
 
-    // EP1: NAK TX, auto-toggle (bit 4 = T_AUTO_TOG)
-    usb.uep01234_t_len(1).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(1)
-        .write_value(pac::usb::regs::UepCtrl(RES_NAK | (1 << 4)));
+        // DMA buffer addresses
+        w32(R_UEP0_DMA, addr_of!(EP0_BUF) as u32);
+        w32(R_UEP1_DMA, addr_of!(EP1_BUF) as u32);
+        w32(R_UEP2_DMA, addr_of!(EP2_BUF) as u32);
+        w32(R_UEP3_DMA, addr_of!(EP3_BUF) as u32);
 
-    // EP2: ACK RX, auto-toggle (bit 5 = R_AUTO_TOG)
-    usb.uep01234_t_len(2).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(2)
-        .write_value(pac::usb::regs::UepCtrl((RES_ACK << 2) | (1 << 5)));
+        // EP0: CTRL_H = R_RES_ACK | T_RES_NAK
+        w8(R_UEP0_CTRL_H, UEP_R_RES_ACK | UEP_T_RES_NAK);
+        // EP2: CTRL_H = R_RES_ACK
+        w8(R_UEP2_CTRL_H, UEP_R_RES_ACK);
 
-    // EP3: NAK TX, auto-toggle (bit 4 = T_AUTO_TOG)
-    usb.uep01234_t_len(3).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(3)
-        .write_value(pac::usb::regs::UepCtrl(RES_NAK | (1 << 4)));
+        // EP1: TX_LEN=0, CTRL_H = T_RES_NAK
+        w8(R_UEP1_TX_LEN, 0);
+        w8(R_UEP1_CTRL_H, UEP_T_RES_NAK);
+        // EP3: TX_LEN=0, CTRL_H = T_RES_NAK
+        w8(R_UEP3_TX_LEN, 0);
+        w8(R_UEP3_CTRL_H, UEP_T_RES_NAK);
 
-    // Enable interrupts: bus reset, transfer, suspend
-    usb.int_en().write(|w| {
-        w.set_bus_rst(true);
-        w.set_transfer(true);
-        w.set_suspend(true);
-    });
+        // --- End endpoint init ---
 
-    // Enable device mode with DMA + internal pull-up + auto-busy
-    usb.ctrl().write(|w| {
-        w.set_dma_en(true);
-        w.set_int_busy(true);
-        w.set_sys_ctrl(0b11); // device enabled + pull-up
-    });
-
-    // Enable device port, disable pull-down
-    usb.udev_ctrl().write(|w| {
-        w.set_port_en(true);
-        w.set_pd_dis(true);
-    });
+        // DEV_ADDR = 0
+        w8(R_DEV_ADDR, 0x00);
+        // BASE_CTRL = UC_DEV_PU_EN(0x20) | UC_INT_BUSY(0x08) | UC_DMA_EN(0x01) = 0x29
+        w8(R_BASE_CTRL, 0x29);
+        // INT_FG = 0xFF (clear all flags)
+        w8(R_INT_FG, 0xFF);
+        // UDEV_CTRL = UD_PD_DIS(0x80) | UD_PORT_EN(0x01) = 0x81
+        w8(R_UDEV_CTRL, 0x81);
+        // INT_EN = UIE_SUSPEND(0x04) | UIE_BUS_RST(0x01) | UIE_TRANSFER(0x02) = 0x07
+        w8(R_INT_EN, 0x07);
+    }
 
     unsafe {
         USB_CONFIG = 0;
@@ -236,43 +261,44 @@ pub fn usb_init() {
 
 /// Poll USB for events. Returns Some(len) when bulk data received on EP2.
 pub fn usb_poll(rx_buf: &mut [u8]) -> Option<usize> {
-    let usb = usbd();
-    let int_fg = usb.int_fg().read();
+    let flags = unsafe { r8(R_INT_FG) };
 
-    if int_fg.bus_rst() {
+    if flags & 0x01 != 0 {
+        // Bus reset - also clear transfer flag to avoid stale INT_ST
         handle_bus_reset();
-        usb.int_fg().write(|w| w.set_bus_rst(true));
+        unsafe { w8(R_INT_FG, 0x03); }
         return None;
     }
 
-    if int_fg.transfer() {
-        let int_st = usb.int_st().read();
-        let ep = int_st.mask_uis_endp();
-        let token = int_st.mask_token();
+    if flags & 0x02 != 0 {
+        // Transfer complete
+        let int_st = unsafe { r8(R_INT_ST) };
+        let ep = int_st & 0x0F;
+        let token = (int_st >> 4) & 0x03;
 
-        let result = match (ep, token) {
-            (0, PID_SETUP) => {
-                handle_ep0_setup();
-                None
+        // CH32X033 reports unexpected ep values in INT_ST (e.g. ep=2 for EP0 SETUP).
+        // SETUP always targets EP0. For OUT, use ep field + SETUP_REQ_CODE to disambiguate.
+        let result = match token {
+            PID_SETUP => { handle_ep0_setup(); None }
+            PID_IN => { handle_ep0_in(); None }
+            PID_OUT => {
+                if unsafe { SETUP_REQ_CODE == CDC_SET_LINE_CODING } || ep == 0 {
+                    handle_ep0_out();
+                    None
+                } else {
+                    handle_ep2_out(rx_buf)
+                }
             }
-            (0, PID_IN) => {
-                handle_ep0_in();
-                None
-            }
-            (0, PID_OUT) => {
-                handle_ep0_out();
-                None
-            }
-            (2, PID_OUT) => handle_ep2_out(rx_buf),
             _ => None,
         };
 
-        usb.int_fg().write(|w| w.set_transfer(true));
+        unsafe { w8(R_INT_FG, 0x02); }
         return result;
     }
 
-    if int_fg.suspend() {
-        usb.int_fg().write(|w| w.set_suspend(true));
+    if flags & 0x04 != 0 {
+        // Suspend
+        unsafe { w8(R_INT_FG, 0x04); }
     }
 
     None
@@ -284,47 +310,41 @@ pub fn is_configured() -> bool {
 }
 
 fn handle_bus_reset() {
-    let usb = usbd();
-
     unsafe {
         USB_CONFIG = 0;
         USB_ADDRESS = 0;
         EP0_TX_DATA = &[];
+
+        w8(R_DEV_ADDR, 0x00);
+
+        // Re-init endpoints
+        w8(R_UEP4_1_MOD, 0x40);
+        w8(R_UEP2_3_MOD, 0x08 | 0x40);
+
+        w32(R_UEP0_DMA, addr_of!(EP0_BUF) as u32);
+        w32(R_UEP1_DMA, addr_of!(EP1_BUF) as u32);
+        w32(R_UEP2_DMA, addr_of!(EP2_BUF) as u32);
+        w32(R_UEP3_DMA, addr_of!(EP3_BUF) as u32);
+
+        w8(R_UEP0_CTRL_H, UEP_R_RES_ACK | UEP_T_RES_NAK);
+        w8(R_UEP2_CTRL_H, UEP_R_RES_ACK);
+        w8(R_UEP1_TX_LEN, 0);
+        w8(R_UEP1_CTRL_H, UEP_T_RES_NAK);
+        w8(R_UEP3_TX_LEN, 0);
+        w8(R_UEP3_CTRL_H, UEP_T_RES_NAK);
     }
-
-    usb.dev_ad().write(|w| w.set_mask_usb_addr(0));
-
-    // Reset EP0
-    usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(0).write(|w| {
-        w.set_t_res(RES_NAK);
-        w.set_r_res(RES_ACK);
-    });
-
-    // Reset EP1
-    usb.uep01234_t_len(1).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(1)
-        .write_value(pac::usb::regs::UepCtrl(RES_NAK | (1 << 4)));
-
-    // Reset EP2
-    usb.uep01234_ctrl(2)
-        .write_value(pac::usb::regs::UepCtrl((RES_ACK << 2) | (1 << 5)));
-
-    // Reset EP3
-    usb.uep01234_t_len(3).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(3)
-        .write_value(pac::usb::regs::UepCtrl(RES_NAK | (1 << 4)));
 }
 
 fn handle_ep0_setup() {
-    let usb = usbd();
-    let len = usb.rx_len().read().rx_len() as usize;
+    // USB SETUP packets are always 8 bytes by spec.
+    // CH32X033 RX_LEN register returns incorrect values for SETUP, so skip check.
 
-    if len != 8 {
-        stall_ep0();
-        return;
+    // NAK both directions while processing (matching SDK)
+    unsafe {
+        w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_NAK | UEP_R_TOG | UEP_R_RES_NAK);
     }
 
+    compiler_fence(Ordering::SeqCst);
     let setup = unsafe { &EP0_BUF.0[..8] };
     let bm_request_type = setup[0];
     let b_request = setup[1];
@@ -346,40 +366,31 @@ fn handle_ep0_setup() {
 }
 
 fn handle_standard_request(bm_request_type: u8, b_request: u8, w_value: u16, w_length: u16) {
-    let usb = usbd();
-
     match b_request {
         USB_REQ_GET_STATUS => {
             unsafe {
                 EP0_BUF.0[0] = 0;
                 EP0_BUF.0[1] = 0;
+                compiler_fence(Ordering::SeqCst);
+                let len = if w_length < 2 { w_length as u8 } else { 2 };
+                w8(R_UEP0_TX_LEN, len);
+                w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
             }
-            let len = w_length.min(2) as u8;
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(len));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true);
-            });
         }
 
         USB_REQ_CLEAR_FEATURE => {
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true);
-            });
+            unsafe {
+                w8(R_UEP0_TX_LEN, 0);
+                w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
+            }
         }
 
         USB_REQ_SET_ADDRESS => {
             unsafe {
                 USB_ADDRESS = (w_value & 0x7F) as u8;
+                w8(R_UEP0_TX_LEN, 0);
+                w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
             }
-            // ZLP status stage; address applied in handle_ep0_in
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true);
-            });
         }
 
         USB_REQ_GET_DESCRIPTOR => {
@@ -394,15 +405,9 @@ fn handle_standard_request(bm_request_type: u8, b_request: u8, w_value: u16, w_l
                     1 => &STR_DESC_1,
                     2 => &STR_DESC_2,
                     3 => &STR_DESC_3,
-                    _ => {
-                        stall_ep0();
-                        return;
-                    }
+                    _ => { stall_ep0(); return; }
                 },
-                _ => {
-                    stall_ep0();
-                    return;
-                }
+                _ => { stall_ep0(); return; }
             };
 
             let send_len = (w_length as usize).min(desc.len());
@@ -415,34 +420,26 @@ fn handle_standard_request(bm_request_type: u8, b_request: u8, w_value: u16, w_l
                 } else {
                     &[]
                 };
+                compiler_fence(Ordering::SeqCst);
+                w8(R_UEP0_TX_LEN, chunk as u8);
+                w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
             }
-
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(chunk as u8));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true); // DATA1
-            });
         }
 
         USB_REQ_SET_CONFIGURATION => {
             unsafe {
                 USB_CONFIG = (w_value & 0xFF) as u8;
+                w8(R_UEP0_TX_LEN, 0);
+                w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
             }
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true);
-            });
         }
 
         _ => {
             if bm_request_type & 0x80 != 0 {
-                // Unknown IN request - send ZLP
-                usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-                usb.uep01234_ctrl(0).write(|w| {
-                    w.set_t_res(RES_ACK);
-                    w.set_t_tog(true);
-                });
+                unsafe {
+                    w8(R_UEP0_TX_LEN, 0);
+                    w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
+                }
             } else {
                 stall_ep0();
             }
@@ -451,35 +448,29 @@ fn handle_standard_request(bm_request_type: u8, b_request: u8, w_value: u16, w_l
 }
 
 fn handle_class_request(b_request: u8, w_length: u16) {
-    let usb = usbd();
-
     match b_request {
         CDC_GET_LINE_CODING => {
-            let len = w_length.min(7) as u8;
+            let len = if w_length < 7 { w_length as u8 } else { 7 };
             unsafe {
                 EP0_BUF.0[..7].copy_from_slice(&LINE_CODING);
+                compiler_fence(Ordering::SeqCst);
+                w8(R_UEP0_TX_LEN, len);
+                w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
             }
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(len));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true);
-            });
         }
 
         CDC_SET_LINE_CODING => {
-            // Data arrives in EP0 OUT phase; prepare to receive
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_r_res(RES_ACK);
-            });
+            // Data arrives in EP0 OUT phase
+            unsafe {
+                w8(R_UEP0_CTRL_H, UEP_R_TOG | UEP_R_RES_ACK);
+            }
         }
 
         CDC_SET_CONTROL_LINE_STATE => {
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true);
-            });
+            unsafe {
+                w8(R_UEP0_TX_LEN, 0);
+                w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
+            }
         }
 
         _ => stall_ep0(),
@@ -487,12 +478,11 @@ fn handle_class_request(b_request: u8, w_length: u16) {
 }
 
 fn handle_ep0_in() {
-    let usb = usbd();
-
     unsafe {
         // Apply deferred SET_ADDRESS
         if SETUP_REQ_CODE == USB_REQ_SET_ADDRESS {
-            usb.dev_ad().write(|w| w.set_mask_usb_addr(USB_ADDRESS));
+            let addr = USB_ADDRESS & 0x7F;
+            w8(R_DEV_ADDR, (r8(R_DEV_ADDR) & 0x80) | addr);
             SETUP_REQ_CODE = 0;
         }
 
@@ -501,64 +491,47 @@ fn handle_ep0_in() {
             let chunk = EP0_TX_DATA.len().min(EP0_SIZE);
             EP0_BUF.0[..chunk].copy_from_slice(&EP0_TX_DATA[..chunk]);
             EP0_TX_DATA = &EP0_TX_DATA[chunk..];
-
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(chunk as u8));
-            usb.uep01234_ctrl(0).modify(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(!w.t_tog());
-            });
+            compiler_fence(Ordering::SeqCst);
+            w8(R_UEP0_TX_LEN, chunk as u8);
+            // Toggle T_TOG
+            let ctrl = r8(R_UEP0_CTRL_H);
+            w8(R_UEP0_CTRL_H, (ctrl ^ UEP_T_TOG) & !(UEP_T_RES_MASK) | UEP_T_RES_ACK);
         } else {
-            // Transfer complete, reset EP0
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_NAK);
-                w.set_r_res(RES_ACK);
-            });
+            // Transfer complete - accept status OUT
+            w8(R_UEP0_TX_LEN, 0);
+            w8(R_UEP0_CTRL_H, UEP_R_TOG | UEP_R_RES_ACK);
         }
     }
 }
 
 fn handle_ep0_out() {
-    let usb = usbd();
-
     unsafe {
         if SETUP_REQ_CODE == CDC_SET_LINE_CODING {
-            // Receive line coding data
-            let len = usb.rx_len().read().rx_len() as usize;
+            let len = r8(R_RX_LEN) as usize;
+            compiler_fence(Ordering::SeqCst);
             if len == 7 {
                 LINE_CODING.copy_from_slice(&EP0_BUF.0[..7]);
             }
-            // Send status IN ZLP
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_ACK);
-                w.set_t_tog(true);
-            });
+            w8(R_UEP0_TX_LEN, 0);
+            w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_ACK);
             SETUP_REQ_CODE = 0;
         } else {
-            // Status stage OUT complete, reset EP0
-            usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-            usb.uep01234_ctrl(0).write(|w| {
-                w.set_t_res(RES_NAK);
-                w.set_r_res(RES_ACK);
-            });
+            // Status stage OUT complete
+            w8(R_UEP0_TX_LEN, 0);
+            w8(R_UEP0_CTRL_H, UEP_T_RES_NAK | UEP_R_RES_ACK);
         }
     }
 }
 
 fn handle_ep2_out(rx_buf: &mut [u8]) -> Option<usize> {
-    let usb = usbd();
-    let len = usb.rx_len().read().rx_len() as usize;
+    let len = unsafe { r8(R_RX_LEN) } as usize;
 
     if len > 0 && len <= rx_buf.len() {
+        compiler_fence(Ordering::SeqCst);
         unsafe {
             rx_buf[..len].copy_from_slice(&EP2_BUF.0[..len]);
+            w8(R_UEP2_CTRL_H, UEP_R_RES_ACK);
         }
-
-        // Ready for next packet
-        usb.uep01234_ctrl(2)
-            .write_value(pac::usb::regs::UepCtrl((RES_ACK << 2) | (1 << 5)));
-
         Some(len)
     } else {
         None
@@ -566,10 +539,8 @@ fn handle_ep2_out(rx_buf: &mut [u8]) -> Option<usize> {
 }
 
 fn stall_ep0() {
-    let usb = usbd();
-    usb.uep01234_t_len(0).write(|w| w.set_t_len(0));
-    usb.uep01234_ctrl(0).write(|w| {
-        w.set_t_res(RES_STALL);
-        w.set_r_res(RES_STALL);
-    });
+    unsafe {
+        w8(R_UEP0_TX_LEN, 0);
+        w8(R_UEP0_CTRL_H, UEP_T_TOG | UEP_T_RES_STALL | UEP_R_TOG | UEP_R_RES_STALL);
+    }
 }
