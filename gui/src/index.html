@@ -1184,10 +1184,20 @@
         return false;
       }
 
+      let claudeFetchInFlight = false;
+      async function fetchClaudeUsage() {
+        if (claudeFetchInFlight || !needsClaudeApi()) return;
+        claudeFetchInFlight = true;
+        try {
+          claudeUsage = await invoke("get_claude_usage");
+        } catch { /* keep previous claudeUsage on error */ }
+        claudeFetchInFlight = false;
+      }
+
       async function poll() {
         try {
           const metrics = await invoke("get_metrics");
-          if (needsClaudeApi()) claudeUsage = await invoke("get_claude_usage").catch(() => null);
+          fetchClaudeUsage();
           const data = [];
           const vBit = voltage === "5" ? 1 : 0;
           for (let i = 0; i < gaugeCount; i++) {
