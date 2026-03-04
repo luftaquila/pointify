@@ -5,6 +5,9 @@
   "scripts": {
     "tauri": "tauri"
   },
+  "dependencies": {
+    "@tauri-apps/plugin-autostart": "^2"
+  },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
   }

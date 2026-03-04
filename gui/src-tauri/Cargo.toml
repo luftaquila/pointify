@@ -20,6 +20,7 @@ dirs = "6"
 chrono = "0.4"
 glob = "0.3"
 tauri-plugin-window-state = "2"
+tauri-plugin-autostart = "2"
 nusb = "0.2.2"
 futures-lite = "2.6.1"
 wchisp = { git = "https://github.com/ch32-rs/wchisp" }

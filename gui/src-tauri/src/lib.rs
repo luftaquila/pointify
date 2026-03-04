@@ -12,12 +12,13 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{
     image::Image,
-    menu::{Menu, MenuItem},
+    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, State, WindowEvent,
 };
 
 use nusb::MaybeFuture;
+use tauri_plugin_autostart::ManagerExt;
 
 use claude::{ClaudeCache, ClaudeUsageEntry};
 use monitor::types::SystemMetrics;
@@ -355,6 +356,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .manage(shared_metrics.clone())
         .manage(shared_interval.clone())
         .manage(claude_cache)
@@ -384,9 +389,20 @@ pub fn run() {
         .setup(move |app| {
             // Build tray menu
             let show = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
-            let hide = MenuItem::with_id(app, "hide", "Hide Window", true, None::<&str>)?;
+            let autostart_manager = app.autolaunch();
+            let autostart_enabled = autostart_manager.is_enabled().unwrap_or(false);
+            let autostart = CheckMenuItem::with_id(
+                app,
+                "autostart",
+                "Start on Login",
+                true,
+                autostart_enabled,
+                None::<&str>,
+            )?;
+            let separator = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
+            let menu =
+                Menu::with_items(app, &[&show, &autostart, &separator, &quit])?;
 
             // Build tray icon
             let icon = Image::from_bytes(include_bytes!("../icons/icon.png"))?;
@@ -402,9 +418,13 @@ pub fn run() {
                             let _ = window.set_focus();
                         }
                     }
-                    "hide" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.hide();
+                    "autostart" => {
+                        let manager = app.autolaunch();
+                        let enabled = manager.is_enabled().unwrap_or(false);
+                        if enabled {
+                            let _ = manager.disable();
+                        } else {
+                            let _ = manager.enable();
                         }
                     }
                     "quit" => {
