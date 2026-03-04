@@ -16,6 +16,8 @@ use tauri::{
     Emitter, Manager, State, WindowEvent,
 };
 
+use nusb::MaybeFuture;
+
 use claude::{ClaudeCache, ClaudeUsageEntry};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
@@ -289,6 +291,20 @@ fn get_version() -> &'static str {
     env!("GIT_VERSION")
 }
 
+#[tauri::command]
+fn get_firmware_version() -> Option<String> {
+    let devices = nusb::list_devices().wait().ok()?;
+    for dev in devices {
+        if dev.vendor_id() == 0x0200 && dev.product_id() == 0x02DB {
+            let ver = dev.device_version();
+            let major = ((ver >> 12) & 0xF) * 10 + ((ver >> 8) & 0xF);
+            let minor = ((ver >> 4) & 0xF) * 10 + (ver & 0xF);
+            return Some(format!("v{}.{}", major, minor));
+        }
+    }
+    None
+}
+
 fn start_watching_serial(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let watch = match nusb::watch_devices() {
@@ -340,7 +356,8 @@ pub fn run() {
             open_claude_env,
             set_claude_ttl,
             get_claude_usage,
-            get_version
+            get_version,
+            get_firmware_version
         ])
         .setup(move |app| {
             // Build tray menu

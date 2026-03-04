@@ -63,7 +63,7 @@ static DEV_DESC: [u8; 18] = [
     0x40, // bMaxPacketSize0 = 64
     0x00, 0x02, // idVendor (0x0200 LE)
     0xDB, 0x02, // idProduct (0x02DB LE)
-    0x00, 0x01, // bcdDevice 1.00
+    0x00, 0x01, // bcdDevice v1.0
     0x01, 0x02, 0x03, // iManufacturer, iProduct, iSerialNumber
     0x01, // bNumConfigurations
 ];

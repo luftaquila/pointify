@@ -43,6 +43,12 @@ cd device/firmware && cargo run --release     # build + flash via probe-rs
 - Reads internal VrefInt (ADC channel 15) at startup to figure out if it's on 3.3V or 5V
 - On 5V supply with a 3V gauge, duty gets scaled by 3/5
 
+### Firmware versioning
+- Version is stored in the USB device descriptor `bcdDevice` field (`usb_cdc.rs` DEV_DESC bytes 12-13, little-endian)
+- BCD-encoded: high byte = major, low byte = minor (e.g. `0x00, 0x01` LE → `0x0100` → v1.0)
+- GUI reads it via `nusb::list_devices()` → `DeviceInfo::device_version()` and displays as `vMAJOR.MINOR` next to the Device sidebar header
+- Release workflow parses the same bytes to name the artifact `pointify-firmware-vX.Y.elf`
+
 ### PWM timer remap constraints
 CH32X033F8P6 (20-pin) shares one AFIO remap value per timer. Only 7 of the 10 PCB channels actually work at the same time:
 - TIM2 remap=0: PA0(CH1), PA1(CH2), PA2(CH3), PA3(CH4) - 4 channels
@@ -61,3 +67,4 @@ CH32X033F8P6 (20-pin) shares one AFIO remap value per timer. Only 7 of the 10 PC
 - `sysinfo` for CPU/memory/disk/network
 - `nvml-wrapper` (Windows/Linux) or CoreFoundation (macOS) for GPU
 - `reqwest` for Claude API usage fetching
+- `nusb` for USB device enumeration (hotplug watch + firmware version reading)

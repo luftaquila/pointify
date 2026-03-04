@@ -125,11 +125,20 @@
       border-bottom: 1px solid var(--border);
     }
     .sidebar-section h2 {
+      display: flex;
+      align-items: baseline;
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 2px;
       color: var(--muted);
       margin-bottom: 12px;
+    }
+    #firmware-version {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: normal;
     }
 
     .setting-row {
@@ -460,7 +469,7 @@
         </div>
 
         <div class="sidebar-section">
-          <h2>Device</h2>
+          <h2>Device<span id="firmware-version"></span></h2>
           <div class="setting-row">
             <span>Active</span>
             <label class="toggle">
@@ -1282,6 +1291,7 @@
 
       // ── Serial port ──
       const serialPortSel = document.getElementById("serial-port-select");
+      const fwVersionEl = document.getElementById("firmware-version");
       async function refreshSerialPorts() {
         const ports = await invoke("list_serial_ports").catch(() => []);
         const prev = serialPortSel.value;
@@ -1302,6 +1312,13 @@
           // New device connected, auto-select
           serialPortSel.value = ports[0].port;
           await invoke("open_serial_port", { port: ports[0].port }).catch(() => {});
+        }
+        // Show firmware version when device is present
+        if (ports.length > 0) {
+          const ver = await invoke("get_firmware_version").catch(() => null);
+          fwVersionEl.textContent = ver || "";
+        } else {
+          fwVersionEl.textContent = "";
         }
       }
       listen("serial-ports-changed", refreshSerialPorts);
