@@ -56,6 +56,8 @@ struct Config {
     gauges: Vec<GaugeConfig>,
     #[serde(default = "default_claude_refresh")]
     claude_refresh_secs: u64,
+    #[serde(default)]
+    smooth: bool,
     theme: String,
 }
 

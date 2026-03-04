@@ -616,6 +616,13 @@
             </label>
           </div>
           <div class="setting-row">
+            <span>Smooth</span>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-smooth">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="setting-row">
             <span>Gauges</span>
             <select id="gauge-count-select">
               <option value="1">1</option>
@@ -988,6 +995,9 @@
       let gaugeCount = 3;
       let isActive = true;
       let pollingMs = 200;
+      let smooth = false;
+      const targetPct = new Array(7).fill(0);
+      const currentPct = new Array(7).fill(0);
       let pollingTimer = null;
 
       // ── Gauge state ──
@@ -1395,21 +1405,52 @@
         claudeFetchInFlight = false;
       }
 
+      // ── Smooth: EMA (α=0.51, 100ms tick) ──
+      const SMOOTH_ALPHA = 0.51;
+      let smoothTimer = null;
+
+      function sendSerial(pcts) {
+        if (!serialPortSel.value) return;
+        const vBit = voltage === "5" ? 1 : 0;
+        const data = [];
+        for (let i = 0; i < gaugeCount; i++) {
+          const pctVal = Math.round(pcts[i] * 1023) & 0x3ff;
+          data.push((vBit << 15) | ((i & 0x1f) << 10) | pctVal);
+        }
+        invoke("send_serial_data", { data }).catch(() => {});
+      }
+
       async function poll() {
         try {
           const metrics = await invoke("get_metrics");
           fetchClaudeUsage();
-          const data = [];
-          const vBit = voltage === "5" ? 1 : 0;
           for (let i = 0; i < gaugeCount; i++) {
-            const pct = updateGauge(i, metrics);
-            const pctVal = Math.round(pct * 1023) & 0x3ff;
-            data.push((vBit << 15) | ((i & 0x1f) << 10) | pctVal);
+            targetPct[i] = updateGauge(i, metrics);
           }
-          if (serialPortSel.value) {
-            invoke("send_serial_data", { data }).catch(() => {});
+          if (smooth) {
+            for (let i = 0; i < gaugeCount; i++) {
+              currentPct[i] += SMOOTH_ALPHA * (targetPct[i] - currentPct[i]);
+            }
+            sendSerial(currentPct);
+          } else {
+            sendSerial(targetPct);
           }
         } catch {}
+      }
+
+      function startSmoothTimer() {
+        stopSmoothTimer();
+        if (!smooth || !isActive || pollingMs <= 100) return;
+        smoothTimer = setInterval(() => {
+          for (let i = 0; i < gaugeCount; i++) {
+            currentPct[i] += SMOOTH_ALPHA * (targetPct[i] - currentPct[i]);
+          }
+          sendSerial(currentPct);
+        }, 100);
+      }
+
+      function stopSmoothTimer() {
+        if (smoothTimer) { clearInterval(smoothTimer); smoothTimer = null; }
       }
 
       function sendZeroData() {
@@ -1424,6 +1465,7 @@
         if (!isActive) return;
         poll();
         pollingTimer = setInterval(poll, pollingMs);
+        startSmoothTimer();
       }
 
       function stopPolling() {
@@ -1431,6 +1473,7 @@
           clearInterval(pollingTimer);
           pollingTimer = null;
         }
+        stopSmoothTimer();
       }
 
       // ── Active toggle ──
@@ -1439,7 +1482,7 @@
         isActive = toggleActive.checked;
         grid.classList.toggle("paused", !isActive);
         if (isActive) startPolling();
-        else { stopPolling(); sendZeroData(); }
+        else { stopPolling(); sendZeroData(); targetPct.fill(0); currentPct.fill(0); }
         saveConfig();
       });
 
@@ -1457,6 +1500,15 @@
         pollingMs = parseInt(e.target.value);
         invoke("set_interval", { ms: pollingMs });
         if (isActive) startPolling();
+        saveConfig();
+      });
+
+      // ── Smooth ──
+      const toggleSmooth = document.getElementById("toggle-smooth");
+      toggleSmooth.addEventListener("change", () => {
+        smooth = toggleSmooth.checked;
+        if (isActive) startSmoothTimer();
+        else stopSmoothTimer();
         saveConfig();
       });
 
@@ -1653,6 +1705,7 @@
                 maxUnit: s.maxUnit,
               })),
               claudeRefreshSecs: parseInt(claudeRefreshSel.value),
+              smooth: smooth,
               theme: document.body.classList.contains("light") ? "light" : "dark",
             },
           });
@@ -1740,6 +1793,9 @@
               claudeRefreshSel.value = cfg.claudeRefreshSecs;
               invoke("set_claude_ttl", { secs: cfg.claudeRefreshSecs });
             }
+
+            smooth = !!cfg.smooth;
+            toggleSmooth.checked = smooth;
 
             if (cfg.gauges) {
               cfg.gauges.forEach((g, i) => {
