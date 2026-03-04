@@ -1537,9 +1537,18 @@
           serialPortSel.value = ports[0].port;
           await invoke("open_serial_port", { port: ports[0].port }).catch(() => {});
         }
-        // Show firmware version when device is present
+        // Check bootloader and firmware version
         const fwBadge = document.getElementById("fw-update-badge");
-        if (ports.length > 0) {
+        const inBootloader = await invoke("is_in_bootloader").catch(() => false);
+        if (inBootloader) {
+          fwVersionEl.textContent = "";
+          fwCurrentVer.textContent = "Bootloader";
+          fwBadge.classList.add("hidden");
+          if (!fwModal.classList.contains("hidden")) {
+            fwBootloaderBtn.disabled = true;
+            if (latestFwInfo) fwUpdateBtn.classList.remove("disabled");
+          }
+        } else if (ports.length > 0) {
           const ver = await invoke("get_firmware_version").catch(() => null);
           fwVersionEl.textContent = ver || "";
           fwCurrentVer.textContent = ver || "N/A";
@@ -1562,7 +1571,10 @@
           fwVersionEl.textContent = "";
           fwCurrentVer.textContent = "N/A";
           fwBadge.classList.add("hidden");
-          if (!fwModal.classList.contains("hidden")) fwBootloaderBtn.disabled = true;
+          if (!fwModal.classList.contains("hidden")) {
+            fwBootloaderBtn.disabled = true;
+            fwUpdateBtn.classList.add("disabled");
+          }
         }
       }
       listen("serial-ports-changed", refreshSerialPorts);
@@ -1599,10 +1611,13 @@
         fwOutputBox.textContent = "";
         fwModal.classList.remove("hidden");
 
+        // Check if already in bootloader mode
+        const inBootloader = await invoke("is_in_bootloader").catch(() => false);
+
         // Current version
         const currentVer = await invoke("get_firmware_version").catch(() => null);
-        fwCurrentVer.textContent = currentVer || "N/A";
-        fwBootloaderBtn.disabled = !currentVer;
+        fwCurrentVer.textContent = inBootloader ? "Bootloader" : (currentVer || "N/A");
+        fwBootloaderBtn.disabled = inBootloader || !currentVer;
 
         // Latest version (always fresh, never use stale cache)
         fwLatestVer.textContent = "--";
@@ -1610,7 +1625,10 @@
 
         if (latestFwInfo) {
           fwLatestVer.textContent = latestFwInfo.version;
-          if (currentVer && currentVer === latestFwInfo.version) {
+          if (inBootloader) {
+            // Already in bootloader — always allow update
+            fwUpdateBtn.classList.remove("disabled");
+          } else if (currentVer && currentVer === latestFwInfo.version) {
             fwUpdateBtn.classList.add("disabled");
           } else {
             fwUpdateBtn.classList.remove("disabled");
@@ -1626,8 +1644,9 @@
         if (fwUpdateBtn.classList.contains("disabled") && !e.shiftKey) return;
         if (!latestFwInfo) return;
 
+        const alreadyInBootloader = await invoke("is_in_bootloader").catch(() => false);
         const port = serialPortSel.value;
-        if (!port) {
+        if (!port && !alreadyInBootloader) {
           fwOutputBox.classList.remove("hidden");
           fwOutputBox.textContent = "Error: No serial port selected";
           return;
@@ -1650,16 +1669,20 @@
           // Download firmware first (before entering bootloader, to avoid bricking on failure)
           await invoke("download_firmware", { downloadUrl: latestFwInfo.download_url });
 
-          // Stop polling and close serial port
-          stopPolling();
-          await new Promise((r) => setTimeout(r, 500));
-          try { await invoke("close_serial_port"); } catch {}
-          await new Promise((r) => setTimeout(r, 300));
+          if (alreadyInBootloader) {
+            fwOutputBox.textContent += "Bootloader already active, skipping bootloader entry...\n";
+          } else {
+            // Stop polling and close serial port
+            stopPolling();
+            await new Promise((r) => setTimeout(r, 500));
+            try { await invoke("close_serial_port"); } catch {}
+            await new Promise((r) => setTimeout(r, 300));
 
-          // Enter bootloader mode
-          fwOutputBox.textContent += "Entering bootloader...\n";
-          await invoke("enter_firmware_update", { port });
-          await new Promise((r) => setTimeout(r, 2000));
+            // Enter bootloader mode
+            fwOutputBox.textContent += "Entering bootloader...\n";
+            await invoke("enter_firmware_update", { port });
+            await new Promise((r) => setTimeout(r, 2000));
+          }
 
           // Flash from cached firmware
           await invoke("flash_firmware");

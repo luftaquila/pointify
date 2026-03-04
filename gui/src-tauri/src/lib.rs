@@ -257,6 +257,19 @@ fn enter_firmware_update(port: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn is_in_bootloader() -> bool {
+    // WCH bootloader USB VID/PID: 4348:55e0 or 1a86:55e0
+    nusb::list_devices()
+        .wait()
+        .map(|devices| {
+            devices.into_iter().any(|d| {
+                (d.vendor_id() == 0x4348 || d.vendor_id() == 0x1a86) && d.product_id() == 0x55e0
+            })
+        })
+        .unwrap_or(false)
+}
+
+#[tauri::command]
 fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     let lock = state.lock().ok();
     let metrics = lock.as_ref().and_then(|l| l.as_ref());
@@ -317,7 +330,9 @@ fn start_watching_serial(app: tauri::AppHandle) {
         for event in futures_lite::stream::block_on(watch) {
             let dominated = match &event {
                 nusb::hotplug::HotplugEvent::Connected(dev) => {
-                    dev.vendor_id() == 0x0200 && dev.product_id() == 0x02DB
+                    (dev.vendor_id() == 0x0200 && dev.product_id() == 0x02DB)
+                        || ((dev.vendor_id() == 0x4348 || dev.vendor_id() == 0x1a86)
+                            && dev.product_id() == 0x55e0)
                 }
                 nusb::hotplug::HotplugEvent::Disconnected(_) => true,
             };
@@ -354,6 +369,7 @@ pub fn run() {
             close_serial_port,
             send_serial_data,
             enter_firmware_update,
+            is_in_bootloader,
             load_config,
             save_config,
             open_claude_env,
