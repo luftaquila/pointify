@@ -1722,7 +1722,56 @@
 
             fwOutputBox.textContent += "Entering bootloader...\n";
             await invoke("enter_firmware_update", { port });
-            await new Promise((r) => setTimeout(r, 2000));
+
+            // Wait for bootloader device to appear (poll-based)
+            fwOutputBox.textContent += "Waiting for bootloader device...\n";
+            const pollBootloader = () => new Promise((resolve, reject) => {
+              let elapsed = 0;
+              const interval = setInterval(async () => {
+                elapsed += 500;
+                if (await invoke("is_in_bootloader").catch(() => false)) {
+                  clearInterval(interval);
+                  resolve();
+                } else if (elapsed >= 3000) {
+                  clearInterval(interval);
+                  reject();
+                }
+              }, 500);
+            });
+
+            try {
+              await pollBootloader();
+            } catch {
+              // Bootloader not detected — try installing WCH driver (Windows)
+              fwOutputBox.textContent += "Bootloader not detected. Installing WCH driver...\n";
+              await invoke("install_wch_driver");
+
+              // After driver install, device may still be in bootloader or back in normal mode
+              fwOutputBox.textContent += "Waiting for bootloader device...\n";
+              try {
+                await pollBootloader();
+              } catch {
+                // Not in bootloader — wait for serial port, then re-enter
+                fwOutputBox.textContent += "Waiting for device...\n";
+                const newPort = await new Promise((resolve, reject) => {
+                  let elapsed = 0;
+                  const iv = setInterval(async () => {
+                    elapsed += 500;
+                    const ports = await invoke("list_serial_ports").catch(() => []);
+                    if (ports.length > 0) { clearInterval(iv); resolve(ports[0].port); }
+                    else if (elapsed >= 3000) { clearInterval(iv); reject(new Error("Device not found")); }
+                  }, 500);
+                });
+                try { await invoke("close_serial_port"); } catch {}
+                await new Promise((r) => setTimeout(r, 300));
+                fwOutputBox.textContent += "Re-entering bootloader...\n";
+                await invoke("enter_firmware_update", { port: newPort });
+                fwOutputBox.textContent += "Waiting for bootloader device...\n";
+                await pollBootloader().catch(() => {
+                  throw new Error("Bootloader device not detected");
+                });
+              }
+            }
           }
 
           await invoke("flash_firmware");

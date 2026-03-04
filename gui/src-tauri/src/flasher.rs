@@ -92,6 +92,94 @@ pub async fn download_firmware(
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+pub async fn install_wch_driver(app: AppHandle) -> Result<(), String> {
+    let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let _ = std::fs::create_dir_all(&cache_dir);
+    let driver_dir = cache_dir.join("wch-driver");
+
+    // Download and extract driver files if not already present
+    if !driver_dir.exists() {
+        let _ = app.emit("flash-output", "Downloading WCH driver...");
+
+        let zip_bytes = reqwest::Client::builder()
+            .user_agent("pointify")
+            .build()
+            .map_err(|e| e.to_string())?
+            .get("https://www.wch-ic.com/download/file?id=28")
+            .send()
+            .await
+            .map_err(|e| format!("Download failed: {}", e))?
+            .error_for_status()
+            .map_err(|e| format!("Download failed: {}", e))?
+            .bytes()
+            .await
+            .map_err(|e| format!("Download failed: {}", e))?;
+
+        std::fs::create_dir_all(&driver_dir).map_err(|e| e.to_string())?;
+
+        let cursor = std::io::Cursor::new(zip_bytes);
+        let mut archive = zip::ZipArchive::new(cursor).map_err(|e| e.to_string())?;
+
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
+            if let Some(name) = file.enclosed_name().and_then(|p| p.file_name().map(|n| n.to_owned())) {
+                let out_path = driver_dir.join(&name);
+                let mut buf = Vec::new();
+                std::io::Read::read_to_end(&mut file, &mut buf).map_err(|e| e.to_string())?;
+                std::fs::write(&out_path, &buf).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    let _ = app.emit("flash-output", "Installing WCH driver...");
+
+    tauri::async_runtime::spawn_blocking(move || {
+        // Find .inf file in extracted driver directory
+        let inf = std::fs::read_dir(&driver_dir)
+            .map_err(|e| e.to_string())?
+            .filter_map(|e| e.ok())
+            .find(|e| e.path().extension().is_some_and(|ext| ext.eq_ignore_ascii_case("inf")))
+            .ok_or("No .inf file found in driver package")?;
+
+        let status = std::process::Command::new("powershell")
+            .args([
+                "-Command",
+                &format!(
+                    "Start-Process -FilePath pnputil -ArgumentList '/add-driver','{}','/install' -Verb RunAs -Wait",
+                    inf.path().display()
+                ),
+            ])
+            .status()
+            .map_err(|e| format!("Failed to install driver: {}", e))?;
+
+        if !status.success() {
+            return Err("Driver installation failed or was cancelled".to_string());
+        }
+
+        // Add driver directory to PATH so wchisp can find CH375DLL64.dll
+        if let Ok(current_path) = std::env::var("PATH") {
+            let dir_str = driver_dir.to_string_lossy();
+            if !current_path.contains(dir_str.as_ref()) {
+                unsafe {
+                    std::env::set_var("PATH", format!("{};{}", dir_str, current_path));
+                }
+            }
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+pub async fn install_wch_driver(_app: AppHandle) -> Result<(), String> {
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn flash_firmware(app: AppHandle) -> Result<(), String> {
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
@@ -107,6 +195,22 @@ pub async fn flash_firmware(app: AppHandle) -> Result<(), String> {
         let emit = |msg: &str| {
             let _ = app.emit("flash-output", msg);
         };
+
+        // Ensure WCH driver DLL directory is in PATH (Windows)
+        #[cfg(target_os = "windows")]
+        {
+            let driver_dir = cache_dir.join("wch-driver");
+            if driver_dir.exists() {
+                if let Ok(current_path) = std::env::var("PATH") {
+                    let dir_str = driver_dir.to_string_lossy();
+                    if !current_path.contains(dir_str.as_ref()) {
+                        unsafe {
+                            std::env::set_var("PATH", format!("{};{}", dir_str, current_path));
+                        }
+                    }
+                }
+            }
+        }
 
         // Parse ELF to raw binary
         emit("Parsing firmware...");

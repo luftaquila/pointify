@@ -384,7 +384,8 @@ pub fn run() {
             get_firmware_version,
             flasher::fetch_latest_firmware,
             flasher::download_firmware,
-            flasher::flash_firmware
+            flasher::flash_firmware,
+            flasher::install_wch_driver
         ])
         .setup(move |app| {
             // Build tray menu

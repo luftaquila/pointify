@@ -28,5 +28,8 @@ wchisp = { git = "https://github.com/ch32-rs/wchisp" }
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
 nvml-wrapper = "0.11"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+zip = "2"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
