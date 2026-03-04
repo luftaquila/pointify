@@ -1668,7 +1668,10 @@
         } finally {
           fwUpdateBtn.classList.remove("busy");
           fwBootloaderBtn.classList.remove("busy");
+          // Wait for device to re-enumerate after reset
+          await new Promise((r) => setTimeout(r, 3000));
           serialPortSel.value = "";
+          await refreshSerialPorts();
           startPolling();
         }
       });
