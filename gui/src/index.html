@@ -1545,6 +1545,7 @@
           fwBadge.classList.add("hidden");
           if (!fwModal.classList.contains("hidden")) {
             fwUpdateBtn.dataset.versionMatch = "false";
+            fwUpdateBtn.dataset.noDevice = "false";
             if (latestFwInfo && fwBtnMode === "update") fwUpdateBtn.classList.remove("disabled");
           }
         } else if (ports.length > 0) {
@@ -1560,6 +1561,7 @@
           if (!fwModal.classList.contains("hidden") && fwBtnMode === "update") {
             const match = ver && latestFwInfo && ver === latestFwInfo.version;
             fwUpdateBtn.dataset.versionMatch = match ? "true" : "false";
+            fwUpdateBtn.dataset.noDevice = "false";
             if (match) {
               fwUpdateBtn.classList.add("disabled");
             } else if (latestFwInfo) {
@@ -1571,6 +1573,7 @@
           fwCurrentVer.textContent = "N/A";
           fwBadge.classList.add("hidden");
           if (!fwModal.classList.contains("hidden") && fwBtnMode === "update") {
+            fwUpdateBtn.dataset.noDevice = "true";
             fwUpdateBtn.classList.add("disabled");
           }
         }
@@ -1594,19 +1597,20 @@
 
       function updateFwBtnModifier(e) {
         if (fwModal.classList.contains("hidden") || fwUpdateBtn.classList.contains("busy")) return;
-        if (e.altKey) {
+        const noDevice = fwUpdateBtn.dataset.noDevice === "true";
+        if (e.altKey && !noDevice) {
           fwBtnMode = "bootloader";
           fwUpdateBtn.textContent = "Enter Bootloader";
           fwUpdateBtn.classList.remove("disabled");
-        } else if (e.shiftKey) {
+        } else if (e.shiftKey && !noDevice) {
           fwBtnMode = "force";
           fwUpdateBtn.textContent = "Update Firmware (force)";
           fwUpdateBtn.classList.remove("disabled");
         } else {
           fwBtnMode = "update";
           fwUpdateBtn.textContent = fwBtnDefaultText;
-          // Restore disabled state based on version match
-          if (!latestFwInfo || fwUpdateBtn.dataset.versionMatch === "true") {
+          // Restore disabled state based on version match or no device
+          if (!latestFwInfo || fwUpdateBtn.dataset.versionMatch === "true" || fwUpdateBtn.dataset.noDevice === "true") {
             fwUpdateBtn.classList.add("disabled");
           } else {
             fwUpdateBtn.classList.remove("disabled");
@@ -1650,8 +1654,10 @@
         if (latestFwInfo) {
           fwLatestVer.textContent = latestFwInfo.version;
           const match = !inBootloader && currentVer && currentVer === latestFwInfo.version;
+          const noDevice = !inBootloader && !currentVer;
           fwUpdateBtn.dataset.versionMatch = match ? "true" : "false";
-          if (match) {
+          fwUpdateBtn.dataset.noDevice = noDevice ? "true" : "false";
+          if (match || noDevice) {
             fwUpdateBtn.classList.add("disabled");
           } else {
             fwUpdateBtn.classList.remove("disabled");
