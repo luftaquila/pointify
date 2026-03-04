@@ -291,7 +291,7 @@ jobs:
             COMMITS=$(git log --pretty=format:"%h %s" "${PREV_TAG}..${TAG}")
           fi
 
-          PROMPT="You are a changelog writer for an open-source project called Pointify (a retro analog gauge meter system for hardware monitoring). Given the following git commits, write a concise release changelog in markdown. Group changes by category (e.g. Features, Fixes, Improvements) if applicable. Use bullet points. Do not include commit hashes. Write in English. Only output the changelog, nothing else.
+          PROMPT="You are a changelog writer for an open-source project called Pointify (a retro analog gauge meter system for hardware monitoring). Given the following git commits, write a concise release changelog in markdown. Do not include an overall title. Use ### for category headings (e.g. Features, Fixes, Improvements). Use bullet points. Do not include commit hashes. Write in English. Only output the changelog, nothing else.
 
           Commits:
           ${COMMITS}"
@@ -309,14 +309,25 @@ jobs:
 
           if [ -z "$SUMMARY" ]; then
             echo "AI summary generation failed, falling back to commit list"
-            SUMMARY="## Changes"$'\n\n'"$(echo "$COMMITS" | sed 's/^[a-f0-9]* /- /')"
+            SUMMARY="$(echo "$COMMITS" | sed 's/^[a-f0-9]* /- /')"
           fi
 
           {
             echo "summary<<CHANGELOG_EOF"
+            echo "## Changelogs"
+            echo ""
             echo "$SUMMARY"
             echo ""
             echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Installation"
+            echo "### macOS"
+            echo "The app is not code-signed. After installing, remove the quarantine attribute:"
+            echo '```bash'
+            echo "xattr -dr com.apple.quarantine /Applications/Pointify.app"
+            echo '```'
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
