@@ -284,6 +284,11 @@ fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     }
 }
 
+#[tauri::command]
+fn get_version() -> &'static str {
+    env!("GIT_VERSION")
+}
+
 fn start_watching_serial(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let watch = match nusb::watch_devices() {
@@ -334,7 +339,8 @@ pub fn run() {
             save_config,
             open_claude_env,
             set_claude_ttl,
-            get_claude_usage
+            get_claude_usage,
+            get_version
         ])
         .setup(move |app| {
             // Build tray menu

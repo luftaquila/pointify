@@ -102,14 +102,22 @@
 
     /* ── Sidebar ── */
     .sidebar-header {
-      padding: 18px 14px 14px;
+      padding: 12px 14px 10px;
       border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
     }
-    .sidebar-header h1 {
-      font-size: 15px;
-      letter-spacing: 5px;
-      text-transform: uppercase;
-      color: var(--accent);
+    .sidebar-header span {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .sidebar-header svg {
+      height: 18px;
+      width: auto;
+      fill: var(--accent);
     }
 
     .sidebar-section {
@@ -445,7 +453,10 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-header">
-          <h1>Pointify</h1>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -180 1030 210">
+            <path d="M25 25L0 25L0-125L100-125L100-25L25-25L25 25ZM25-100L25-50L75-50L75-100L25-100ZM260 0L160 0L160-125L260-125L260 0ZM185-100L185-25L235-25L235-100L185-100ZM345 0L320 0L320-125L345-125L345 0ZM345-150L320-150L320-175L345-175L345-150ZM430 0L405 0L405-125L505-125L505 0L480 0L480-100L430-100L430 0ZM590-100L565-100L565-125L590-125L590-150L615-150L615-125L640-125L640-100L615-100L615-25L640-25L640 0L590 0L590-100ZM725 0L700 0L700-125L725-125L725 0ZM725-150L700-150L700-175L725-175L725-150ZM835 0L785 0L785-25L810-25L810-100L785-100L785-125L810-125L810-175L860-175L860-150L835-150L835-125L860-125L860-100L835-100L835 0ZM1020 25L920 25L920 0L995 0L995-25L920-25L920-125L945-125L945-50L995-50L995-125L1020-125L1020 25Z"/>
+          </svg>
+          <span id="version-label"></span>
         </div>
 
         <div class="sidebar-section">
@@ -585,6 +596,10 @@
     (function () {
       const { invoke } = window.__TAURI__.core;
       const { listen } = window.__TAURI__.event;
+
+      invoke("get_version").then(v => {
+        document.getElementById("version-label").textContent = v;
+      }).catch(() => {});
 
       // ── Constants ──
       const ARC_START = -45,
