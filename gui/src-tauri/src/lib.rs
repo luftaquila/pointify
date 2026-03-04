@@ -213,6 +213,20 @@ fn close_serial_port(serial: State<SharedSerial>) -> Result<(), String> {
     Ok(())
 }
 
+fn reset_gauges(app: &tauri::AppHandle) {
+    let serial = app.state::<SharedSerial>();
+    let mut lock = match serial.lock() {
+        Ok(l) => l,
+        Err(_) => return,
+    };
+    if let Some(port) = lock.as_mut() {
+        // Send PWM=0 for gauge indices 0-6
+        let bytes: Vec<u8> = (0u16..7).flat_map(|i| (i << 10).to_be_bytes()).collect();
+        let _ = port.write_all(&bytes);
+        let _ = port.flush();
+    }
+}
+
 #[tauri::command]
 fn send_serial_data(data: Vec<u16>, serial: State<SharedSerial>) -> Result<(), String> {
     let mut lock = serial.lock().map_err(|e| e.to_string())?;
@@ -349,6 +363,7 @@ pub fn run() {
                         }
                     }
                     "quit" => {
+                        reset_gauges(app);
                         app.exit(0);
                     }
                     _ => {}

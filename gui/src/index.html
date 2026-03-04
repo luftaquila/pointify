@@ -1218,6 +1218,13 @@
         } catch {}
       }
 
+      function sendZeroData() {
+        if (!serialPortSel.value) return;
+        const vBit = voltage === "5" ? 1 : 0;
+        const data = Array.from({ length: gaugeCount }, (_, i) => (vBit << 15) | ((i & 0x1f) << 10));
+        invoke("send_serial_data", { data }).catch(() => {});
+      }
+
       function startPolling() {
         stopPolling();
         if (!isActive) return;
@@ -1238,7 +1245,7 @@
         isActive = toggleActive.checked;
         grid.classList.toggle("paused", !isActive);
         if (isActive) startPolling();
-        else stopPolling();
+        else { stopPolling(); sendZeroData(); }
         saveConfig();
       });
 
