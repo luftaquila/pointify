@@ -20,14 +20,17 @@ jobs:
           components: rust-src, llvm-tools
 
       - uses: Swatinem/rust-cache@v2
+        id: cache
         with:
           workspaces: device/firmware -> target
 
       - name: Build firmware
+        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
         working-directory: device/firmware
         run: cargo build --release
 
       - name: Prepare artifact
+        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
         run: |
           VERSION=$(python3 -c "
           import re
@@ -44,37 +47,20 @@ jobs:
           cp device/firmware/target/riscv32imc-unknown-none-elf/release/pointify-firmware "pointify-firmware-${VERSION}.elf"
 
       - name: Upload artifacts
+        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pointify-firmware
           path: pointify-firmware-*.elf
 
   pcb:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get KiCad image digest
-        id: digest
-        run: |
-          DIGEST=$(docker manifest inspect kicad/kicad:9.0 | sha256sum | cut -d' ' -f1)
-          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
-
-      - name: Cache KiCad image
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/kicad-image.tar
-          key: kicad-9.0-${{ steps.digest.outputs.digest }}
-
-      - name: Load or pull KiCad image
-        run: |
-          if [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
-            docker load -i /tmp/kicad-image.tar
-          else
-            docker pull kicad/kicad:9.0
-            docker save kicad/kicad:9.0 -o /tmp/kicad-image.tar
-          fi
+      - name: Pull KiCad image
+        run: docker pull kicad/kicad:9.0
 
       - name: Generate Gerber files
         run: |
@@ -214,6 +200,7 @@ jobs:
           targets: ${{ matrix.rust-target }}
 
       - uses: Swatinem/rust-cache@v2
+        id: cache
         with:
           workspaces: gui/src-tauri -> target
           key: ${{ matrix.rust-target }}
@@ -221,35 +208,36 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: gui/package-lock.json
 
       - name: Install frontend dependencies
+        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
         working-directory: gui
         run: npm install
 
       - name: Build Tauri app
+        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
         working-directory: gui
         run: npx tauri build --target ${{ matrix.rust-target }}
 
       - name: Rename artifacts (macOS)
-        if: matrix.platform == 'macos'
+        if: matrix.platform == 'macos' && (github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true')
         run: |
           mv gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/dmg/*.dmg pointify-macos-${{ matrix.arch }}.dmg
 
       - name: Rename artifacts (Windows)
-        if: matrix.platform == 'windows'
+        if: matrix.platform == 'windows' && (github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true')
         shell: pwsh
         run: |
           Move-Item (Get-ChildItem gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/nsis/*.exe).FullName pointify-windows-${{ matrix.arch }}.exe
 
       - name: Rename artifacts (Linux)
-        if: matrix.platform == 'linux'
+        if: matrix.platform == 'linux' && (github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true')
         run: |
           mv gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/deb/*.deb pointify-linux-${{ matrix.arch }}.deb
           mv gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/appimage/*.AppImage pointify-linux-${{ matrix.arch }}.AppImage
 
       - name: Upload artifacts
+        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pointify-${{ matrix.platform }}-${{ matrix.arch }}
