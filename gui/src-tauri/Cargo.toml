@@ -22,6 +22,7 @@ glob = "0.3"
 tauri-plugin-window-state = "2"
 nusb = "0.2.2"
 futures-lite = "2.6.1"
+wchisp = { git = "https://github.com/ch32-rs/wchisp" }
 
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
 nvml-wrapper = "0.11"

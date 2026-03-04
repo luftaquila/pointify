@@ -257,6 +257,144 @@
       height: 16px;
     }
 
+    /* ── Update badge ── */
+    #github-wrap {
+      position: relative;
+    }
+    #update-badge,
+    #fw-update-badge {
+      position: absolute;
+      bottom: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--bg-card);
+      background: var(--accent);
+      border-radius: 4px;
+      padding: 5px 10px;
+      pointer-events: none;
+    }
+    #update-badge::after,
+    #fw-update-badge::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: var(--accent);
+    }
+    #update-badge.hidden,
+    #fw-update-badge.hidden { display: none; }
+
+    /* ── Firmware modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      width: 420px;
+      max-width: 90vw;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--accent); }
+    .modal-versions {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+    .modal-ver {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .modal-ver-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .modal-ver-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .modal-actions button {
+      flex: 1;
+      height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+    }
+    .modal-actions button:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+    .modal-actions button:disabled,
+    .modal-actions button.disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .modal-actions button.busy {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .modal-output {
+      background: var(--bg-display);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text);
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .modal-output.hidden { display: none; }
+
     /* ── Gauge grid ── */
     .grid {
       display: grid;
@@ -571,14 +709,19 @@
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           </button>
-          <a id="github-link" href="#" title="GitHub">
-            <svg viewBox="0 0 16 16" fill="currentColor">
-              <path
-                d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68.94 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
-              />
-            </svg>
-          </a>
-          <button id="firmware-update" title="Enter Bootloader" style="margin-left:auto;">
+          <div id="github-wrap">
+            <a id="github-link" href="#" title="GitHub">
+              <svg viewBox="0 0 16 16" fill="currentColor">
+                <path
+                  d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68.94 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+                />
+              </svg>
+            </a>
+            <span id="update-badge" class="hidden">Update available!</span>
+          </div>
+          <div id="firmware-wrap" style="margin-left:auto; position:relative;">
+            <span id="fw-update-badge" class="hidden">Update available!</span>
+          <button id="firmware-btn" title="Firmware">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="4" y="4" width="16" height="16" rx="2" />
               <rect x="9" y="9" width="6" height="6" />
@@ -592,6 +735,7 @@
               <line x1="1" y1="14" x2="4" y2="14" />
             </svg>
           </button>
+          </div>
         </div>
       </aside>
 
@@ -601,12 +745,39 @@
       </main>
     </div>
 
+    <!-- Firmware modal -->
+    <div id="firmware-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>Firmware</span>
+          <button id="firmware-modal-close" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-versions">
+          <div class="modal-ver">
+            <span class="modal-ver-label">Current</span>
+            <span id="fw-current-ver" class="modal-ver-value">--</span>
+          </div>
+          <div class="modal-ver">
+            <span class="modal-ver-label">Latest</span>
+            <span id="fw-latest-ver" class="modal-ver-value">--</span>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="fw-bootloader-btn">Enter Bootloader</button>
+          <button id="fw-update-btn" class="disabled">Update Firmware</button>
+        </div>
+        <div id="fw-output-box" class="modal-output hidden"></div>
+      </div>
+    </div>
+
     <script>
     (function () {
       const { invoke } = window.__TAURI__.core;
       const { listen } = window.__TAURI__.event;
 
+      let guiVersion = "";
       invoke("get_version").then(v => {
+        guiVersion = v;
         document.getElementById("version-label").textContent = v;
       }).catch(() => {});
 
@@ -1292,6 +1463,7 @@
       // ── Serial port ──
       const serialPortSel = document.getElementById("serial-port-select");
       const fwVersionEl = document.getElementById("firmware-version");
+      const fwCurrentVer = document.getElementById("fw-current-ver");
       async function refreshSerialPorts() {
         const ports = await invoke("list_serial_ports").catch(() => []);
         const prev = serialPortSel.value;
@@ -1314,11 +1486,31 @@
           await invoke("open_serial_port", { port: ports[0].port }).catch(() => {});
         }
         // Show firmware version when device is present
+        const fwBadge = document.getElementById("fw-update-badge");
         if (ports.length > 0) {
           const ver = await invoke("get_firmware_version").catch(() => null);
           fwVersionEl.textContent = ver || "";
+          fwCurrentVer.textContent = ver || "N/A";
+          // Show firmware update badge (hide if GUI badge is already showing)
+          const guiBadgeVisible = !document.getElementById("update-badge").classList.contains("hidden");
+          if (ver && latestFwInfo && ver !== latestFwInfo.version && !guiBadgeVisible) {
+            fwBadge.classList.remove("hidden");
+          } else {
+            fwBadge.classList.add("hidden");
+          }
+          if (!fwModal.classList.contains("hidden")) {
+            fwBootloaderBtn.disabled = !ver;
+            if (ver && latestFwInfo && ver === latestFwInfo.version) {
+              fwUpdateBtn.classList.add("disabled");
+            } else if (latestFwInfo) {
+              fwUpdateBtn.classList.remove("disabled");
+            }
+          }
         } else {
           fwVersionEl.textContent = "";
+          fwCurrentVer.textContent = "N/A";
+          fwBadge.classList.add("hidden");
+          if (!fwModal.classList.contains("hidden")) fwBootloaderBtn.disabled = true;
         }
       }
       listen("serial-ports-changed", refreshSerialPorts);
@@ -1329,8 +1521,104 @@
         if (port) await invoke("open_serial_port", { port }).catch(() => {});
       });
 
-      // ── Firmware update ──
-      document.getElementById("firmware-update").addEventListener("click", async () => {
+      // ── Firmware modal ──
+      const fwModal = document.getElementById("firmware-modal");
+      const fwLatestVer = document.getElementById("fw-latest-ver");
+      const fwUpdateBtn = document.getElementById("fw-update-btn");
+      const fwBootloaderBtn = document.getElementById("fw-bootloader-btn");
+      const fwOutputBox = document.getElementById("fw-output-box");
+      let flashUnlisten = null;
+
+      function closeFwModal() {
+        fwModal.classList.add("hidden");
+        if (flashUnlisten) { flashUnlisten(); flashUnlisten = null; }
+      }
+
+      document.getElementById("firmware-modal-close").addEventListener("click", closeFwModal);
+      fwModal.addEventListener("click", (e) => { if (e.target === fwModal) closeFwModal(); });
+
+      document.getElementById("firmware-btn").addEventListener("click", async () => {
+        // Reset modal state
+        fwOutputBox.classList.add("hidden");
+        fwOutputBox.textContent = "";
+        fwUpdateBtn.classList.add("disabled");
+        fwBootloaderBtn.disabled = true;
+        fwOutputBox.classList.add("hidden");
+        fwOutputBox.textContent = "";
+        fwModal.classList.remove("hidden");
+
+        // Current version
+        const currentVer = await invoke("get_firmware_version").catch(() => null);
+        fwCurrentVer.textContent = currentVer || "N/A";
+        fwBootloaderBtn.disabled = !currentVer;
+
+        // Latest version (refresh each time modal opens)
+        fwLatestVer.textContent = "--";
+        latestFwInfo = await invoke("fetch_latest_firmware").catch(() => latestFwInfo);
+
+        if (latestFwInfo) {
+          fwLatestVer.textContent = latestFwInfo.version;
+          if (currentVer && currentVer === latestFwInfo.version) {
+            fwUpdateBtn.classList.add("disabled");
+          } else {
+            fwUpdateBtn.classList.remove("disabled");
+          }
+        } else {
+          fwLatestVer.textContent = "Error";
+        }
+      });
+
+      // Shift+Click bypasses version-match disable
+      fwUpdateBtn.addEventListener("click", async (e) => {
+        if (fwUpdateBtn.classList.contains("busy")) return;
+        if (fwUpdateBtn.classList.contains("disabled") && !e.shiftKey) return;
+        if (!latestFwInfo) return;
+
+        const port = serialPortSel.value;
+        if (!port) {
+          fwOutputBox.classList.remove("hidden");
+          fwOutputBox.textContent = "Error: No serial port selected";
+          return;
+        }
+
+        // Disable buttons during flash
+        fwUpdateBtn.classList.add("busy");
+        fwBootloaderBtn.classList.add("busy");
+        fwOutputBox.classList.remove("hidden");
+        fwOutputBox.textContent = e.shiftKey ? "Force updating firmware...\n" : "";
+
+        // Listen for flash output events (unlisten previous if any)
+        if (flashUnlisten) { flashUnlisten(); flashUnlisten = null; }
+        flashUnlisten = await listen("flash-output", (event) => {
+          fwOutputBox.textContent += event.payload + "\n";
+          fwOutputBox.scrollTop = fwOutputBox.scrollHeight;
+        });
+
+        try {
+          // Stop polling and close serial port
+          stopPolling();
+          await new Promise((r) => setTimeout(r, 500));
+          try { await invoke("close_serial_port"); } catch {}
+          await new Promise((r) => setTimeout(r, 300));
+
+          // Enter bootloader mode
+          fwOutputBox.textContent += "Entering bootloader...\n";
+          await invoke("enter_firmware_update", { port });
+          await new Promise((r) => setTimeout(r, 2000));
+
+          // Download and flash
+          await invoke("download_and_flash", { downloadUrl: latestFwInfo.download_url });
+        } catch (e) {
+          fwOutputBox.textContent += "\nError: " + e + "\n";
+        } finally {
+          fwUpdateBtn.classList.remove("busy");
+          fwBootloaderBtn.classList.remove("busy");
+          serialPortSel.value = "";
+          startPolling();
+        }
+      });
+
+      fwBootloaderBtn.addEventListener("click", async () => {
         const port = serialPortSel.value;
         if (!port) return;
         stopPolling();
@@ -1340,7 +1628,8 @@
         try {
           await invoke("enter_firmware_update", { port });
         } catch (e) {
-          alert("Firmware update failed: " + e);
+          fwOutputBox.classList.remove("hidden");
+          fwOutputBox.textContent = "Error: " + e;
         }
         serialPortSel.value = "";
         startPolling();
@@ -1402,10 +1691,26 @@
       });
 
       // ── GitHub ──
-      document.getElementById("github-link").addEventListener("click", (e) => {
+      const githubLink = document.getElementById("github-link");
+      githubLink.addEventListener("click", (e) => {
         e.preventDefault();
         window.__TAURI__.shell.open("https://github.com/luftaquila/pointify");
       });
+      let latestFwInfo = null;
+      invoke("fetch_latest_firmware").then(info => {
+        if (info) {
+          latestFwInfo = info;
+          if (info.release_tag && guiVersion && info.release_tag !== guiVersion) {
+            document.getElementById("update-badge").classList.remove("hidden");
+          }
+          // Check firmware update badge (device may already be connected, skip if GUI badge showing)
+          const curFw = fwVersionEl.textContent;
+          const guiBadgeUp = !document.getElementById("update-badge").classList.contains("hidden");
+          if (curFw && curFw !== info.version && !guiBadgeUp) {
+            document.getElementById("fw-update-badge").classList.remove("hidden");
+          }
+        }
+      }).catch(() => {});
 
       // ── Init ──
       async function init() {

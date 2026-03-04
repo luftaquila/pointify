@@ -1,4 +1,5 @@
 mod claude;
+mod flasher;
 mod monitor;
 
 use std::collections::HashMap;
@@ -357,7 +358,9 @@ pub fn run() {
             set_claude_ttl,
             get_claude_usage,
             get_version,
-            get_firmware_version
+            get_firmware_version,
+            flasher::fetch_latest_firmware,
+            flasher::download_and_flash
         ])
         .setup(move |app| {
             // Build tray menu
