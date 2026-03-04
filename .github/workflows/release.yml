@@ -313,11 +313,18 @@ jobs:
             echo ""
             echo "---"
             echo ""
-            echo "## Installation"
+            echo "## Notes"
             echo "### macOS"
             echo "The app is not code-signed. After installing, remove the quarantine attribute:"
             echo '```bash'
             echo "xattr -dr com.apple.quarantine /Applications/Pointify.app"
+            echo '```'
+            echo ""
+            echo "### Linux"
+            echo "To use firmware update, set udev rules for the WCH bootloader USB device:"
+            echo '```bash'
+            echo "# /etc/udev/rules.d/50-wchisp.rules"
+            echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="4348", ATTRS{idProduct}=="55e0", MODE="0666"'
             echo '```'
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
