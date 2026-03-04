@@ -17,6 +17,10 @@ jobs:
           targets: riscv32imc-unknown-none-elf
           components: rust-src, llvm-tools
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: device/firmware -> target
+
       - name: Build firmware
         working-directory: device/firmware
         run: cargo build --release
@@ -48,59 +52,79 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install KiCad
+      - name: Get KiCad image digest
+        id: digest
         run: |
-          sudo add-apt-repository -y ppa:kicad/kicad-9.0-releases
-          sudo apt-get update
-          sudo apt-get install -y kicad
+          DIGEST=$(docker manifest inspect kicad/kicad:9.0 | sha256sum | cut -d' ' -f1)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Cache KiCad image
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/kicad-image.tar
+          key: kicad-9.0-${{ steps.digest.outputs.digest }}
+
+      - name: Load or pull KiCad image
+        run: |
+          if [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
+            docker load -i /tmp/kicad-image.tar
+          else
+            docker pull kicad/kicad:9.0
+            docker save kicad/kicad:9.0 -o /tmp/kicad-image.tar
+          fi
 
       - name: Generate Gerber files
         run: |
           mkdir -p output/gerbers
-          kicad-cli pcb export gerbers \
-            --output output/gerbers/ \
-            --layers F.Cu,B.Cu,F.Paste,B.Paste,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts \
-            --no-x2 \
-            --subtract-soldermask \
-            --use-drill-file-origin \
-            device/hardware/pointify.kicad_pcb
+          docker run --rm --user $(id -u):$(id -g) -v "$PWD:/work" -w /work kicad/kicad:9.0 \
+            kicad-cli pcb export gerbers \
+              --output output/gerbers/ \
+              --layers F.Cu,B.Cu,F.Paste,B.Paste,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts \
+              --no-x2 \
+              --subtract-soldermask \
+              --use-drill-file-origin \
+              device/hardware/pointify.kicad_pcb
 
       - name: Generate Drill files
         run: |
-          kicad-cli pcb export drill \
-            --output output/gerbers/ \
-            --format excellon \
-            --excellon-units mm \
-            --excellon-zeros-format decimal \
-            --excellon-separate-th \
-            --generate-map \
-            --map-format gerberx2 \
-            device/hardware/pointify.kicad_pcb
+          docker run --rm --user $(id -u):$(id -g) -v "$PWD:/work" -w /work kicad/kicad:9.0 \
+            kicad-cli pcb export drill \
+              --output output/gerbers/ \
+              --format excellon \
+              --excellon-units mm \
+              --excellon-zeros-format decimal \
+              --excellon-separate-th \
+              --generate-map \
+              --map-format gerberx2 \
+              device/hardware/pointify.kicad_pcb
 
       - name: Create Gerber ZIP
         run: cd output/gerbers && zip -r ../pointify-gerbers.zip ./*
 
       - name: Generate BOM CSV
         run: |
-          kicad-cli sch export bom \
-            --output output/pointify-bom.csv \
-            --fields 'Value,Reference,Footprint,LCSC' \
-            --labels 'Comment,Designator,Footprint,LCSC' \
-            --sort-field 'Reference' \
-            --sort-asc \
-            --exclude-dnp \
-            device/hardware/pointify.kicad_sch
+          docker run --rm --user $(id -u):$(id -g) -v "$PWD:/work" -w /work kicad/kicad:9.0 \
+            kicad-cli sch export bom \
+              --output output/pointify-bom.csv \
+              --fields 'Value,Reference,Footprint,LCSC' \
+              --labels 'Comment,Designator,Footprint,LCSC' \
+              --sort-field 'Reference' \
+              --sort-asc \
+              --exclude-dnp \
+              device/hardware/pointify.kicad_sch
 
       - name: Generate CPL CSV
         run: |
-          kicad-cli pcb export pos \
-            --output output/pointify-cpl.csv \
-            --format csv \
-            --units mm \
-            --side both \
-            --exclude-dnp \
-            --use-drill-file-origin \
-            device/hardware/pointify.kicad_pcb
+          docker run --rm --user $(id -u):$(id -g) -v "$PWD:/work" -w /work kicad/kicad:9.0 \
+            kicad-cli pcb export pos \
+              --output output/pointify-cpl.csv \
+              --format csv \
+              --units mm \
+              --side both \
+              --exclude-dnp \
+              --use-drill-file-origin \
+              device/hardware/pointify.kicad_pcb
           sed -i '1s/Ref,Val,Package,PosX,PosY,Rot,Side/Designator,Val,Package,Mid X,Mid Y,Rotation,Layer/' output/pointify-cpl.csv
 
       - name: Create PCB ZIP
@@ -186,9 +210,16 @@ jobs:
         with:
           targets: ${{ matrix.rust-target }}
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: gui/src-tauri -> target
+          key: ${{ matrix.rust-target }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: gui
@@ -239,11 +270,11 @@ jobs:
 
       - name: Package hardware artifacts
         run: |
-          mkdir -p hardware/pcb hardware/3d
-          cd hardware/pcb && unzip ../../pointify-pcb.zip
+          mkdir -p pointify-hardware/pcb pointify-hardware/3d
+          cd pointify-hardware/pcb && unzip ../../pointify-pcb.zip
           cd ../3d && unzip ../../pointify-3d.zip
           cp ../../device/3d/pointify.scad .
-          cd ../.. && zip -r pointify-hardware.zip hardware/
+          cd ../.. && zip -r pointify-hardware.zip pointify-hardware/
           rm pointify-pcb.zip pointify-3d.zip
 
       - name: Generate AI changelog summary

@@ -68,3 +68,8 @@ CH32X033F8P6 (20-pin) shares one AFIO remap value per timer. Only 7 of the 10 PC
 - `nvml-wrapper` (Windows/Linux) or CoreFoundation (macOS) for GPU
 - `reqwest` for Claude API usage fetching
 - `nusb` for USB device enumeration (hotplug watch + firmware version reading)
+
+### Release workflow CI caching
+- **Rust builds** (firmware + GUI): `Swatinem/rust-cache@v2` caches `target/` dirs, auto-invalidates on `Cargo.lock` changes
+- **npm**: `actions/setup-node` `cache: npm` option caches npm packages
+- **KiCad**: Docker image (`kicad/kicad:9.0`) cached via `docker save/load` + `actions/cache`, keyed by `docker manifest inspect` digest so new patch releases auto-invalidate the cache
