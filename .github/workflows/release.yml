@@ -23,16 +23,25 @@ jobs:
 
       - name: Prepare artifact
         run: |
-          mkdir -p output
-          cp device/firmware/target/riscv32imc-unknown-none-elf/release/pointify-firmware output/pointify-firmware-riscv32.elf
-          $(rustc --print sysroot)/lib/rustlib/x86_64-unknown-linux-gnu/bin/llvm-objcopy -O binary device/firmware/target/riscv32imc-unknown-none-elf/release/pointify-firmware output/pointify-firmware-riscv32.bin
-          cd output && zip ../pointify-firmware.zip ./*
+          VERSION=$(python3 -c "
+          import re
+          with open('device/firmware/src/usb_cdc.rs') as f:
+              text = f.read()
+          m = re.search(r'(0x[0-9A-Fa-f]{2}),\s*(0x[0-9A-Fa-f]{2}),\s*//\s*bcdDevice', text)
+          lo = int(m.group(1), 16)
+          hi = int(m.group(2), 16)
+          bcd = (hi << 8) | lo
+          major = ((bcd >> 12) & 0xF) * 10 + ((bcd >> 8) & 0xF)
+          minor = ((bcd >> 4) & 0xF) * 10 + (bcd & 0xF)
+          print(f'v{major}.{minor}')
+          ")
+          cp device/firmware/target/riscv32imc-unknown-none-elf/release/pointify-firmware "pointify-firmware-${VERSION}.elf"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: pointify-firmware
-          path: pointify-firmware.zip
+          path: pointify-firmware-*.elf
 
   pcb:
     runs-on: ubuntu-latest
@@ -219,13 +228,69 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           merge-multiple: true
 
+      - name: Package hardware artifacts
+        run: |
+          mkdir -p hardware/pcb hardware/3d
+          cd hardware/pcb && unzip ../../pointify-pcb.zip
+          cd ../3d && unzip ../../pointify-3d.zip
+          cp ../../device/3d/pointify.scad .
+          cd ../.. && zip -r pointify-hardware.zip hardware/
+          rm pointify-pcb.zip pointify-3d.zip
+
+      - name: Generate AI changelog summary
+        id: changelog
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${TAG}$" | tail -1)
+
+          if [ "$PREV_TAG" = "$TAG" ] || [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%h %s" -50)
+          else
+            COMMITS=$(git log --pretty=format:"%h %s" "${PREV_TAG}..${TAG}")
+          fi
+
+          PROMPT="You are a changelog writer for an open-source project called Pointify (a retro analog gauge meter system for hardware monitoring). Given the following git commits, write a concise release changelog in markdown. Group changes by category (e.g. Features, Fixes, Improvements) if applicable. Use bullet points. Do not include commit hashes. Write in English. Only output the changelog, nothing else.
+
+          Commits:
+          ${COMMITS}"
+
+          BODY=$(jq -n --arg prompt "$PROMPT" '{
+            "contents": [{"parts": [{"text": $prompt}]}],
+            "generationConfig": {"temperature": 0.3}
+          }')
+
+          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+
+          if [ -z "$SUMMARY" ]; then
+            echo "AI summary generation failed, falling back to commit list"
+            SUMMARY="## Changes"$'\n\n'"$(echo "$COMMITS" | sed 's/^[a-f0-9]* /- /')"
+          fi
+
+          {
+            echo "summary<<CHANGELOG_EOF"
+            echo "$SUMMARY"
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: pointify-*
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.summary }}
