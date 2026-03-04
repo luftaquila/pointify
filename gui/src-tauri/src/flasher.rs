@@ -55,11 +55,10 @@ pub async fn fetch_latest_firmware() -> Result<FirmwareInfo, String> {
 }
 
 #[tauri::command]
-pub async fn download_and_flash(
+pub async fn download_firmware(
     app: AppHandle,
     download_url: String,
 ) -> Result<(), String> {
-    // Download firmware
     let _ = app.emit("flash-output", "Downloading firmware...");
 
     let client = reqwest::Client::builder()
@@ -72,22 +71,38 @@ pub async fn download_and_flash(
         .send()
         .await
         .map_err(|e| format!("Download failed: {}", e))?
+        .error_for_status()
+        .map_err(|e| format!("Download failed: {}", e))?
         .bytes()
         .await
         .map_err(|e| format!("Download failed: {}", e))?
         .to_vec();
 
+    if elf_bytes.is_empty() {
+        return Err("Download failed: empty response".to_string());
+    }
+
     let _ = app.emit("flash-output", &format!("Downloaded {} bytes", elf_bytes.len()));
 
-    // Save to cache dir
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
     let _ = std::fs::create_dir_all(&cache_dir);
     let elf_path = cache_dir.join("firmware.elf");
     std::fs::write(&elf_path, &elf_bytes).map_err(|e| format!("Save failed: {}", e))?;
 
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn flash_firmware(app: AppHandle) -> Result<(), String> {
+    let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let elf_path = cache_dir.join("firmware.elf");
+
+    if !elf_path.exists() {
+        return Err("No firmware file found. Download firmware first.".to_string());
+    }
+
     let elf_path_str = elf_path.to_str().ok_or("Invalid path")?.to_string();
 
-    // Flash in blocking thread (wchisp uses synchronous USB I/O)
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let emit = |msg: &str| {
             let _ = app.emit("flash-output", msg);

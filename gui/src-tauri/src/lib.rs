@@ -362,7 +362,8 @@ pub fn run() {
             get_version,
             get_firmware_version,
             flasher::fetch_latest_firmware,
-            flasher::download_and_flash
+            flasher::download_firmware,
+            flasher::flash_firmware
         ])
         .setup(move |app| {
             // Build tray menu

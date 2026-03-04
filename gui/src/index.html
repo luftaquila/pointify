@@ -1604,9 +1604,9 @@
         fwCurrentVer.textContent = currentVer || "N/A";
         fwBootloaderBtn.disabled = !currentVer;
 
-        // Latest version (refresh each time modal opens)
+        // Latest version (always fresh, never use stale cache)
         fwLatestVer.textContent = "--";
-        latestFwInfo = await invoke("fetch_latest_firmware").catch(() => latestFwInfo);
+        latestFwInfo = await invoke("fetch_latest_firmware").catch(() => null);
 
         if (latestFwInfo) {
           fwLatestVer.textContent = latestFwInfo.version;
@@ -1647,6 +1647,9 @@
         });
 
         try {
+          // Download firmware first (before entering bootloader, to avoid bricking on failure)
+          await invoke("download_firmware", { downloadUrl: latestFwInfo.download_url });
+
           // Stop polling and close serial port
           stopPolling();
           await new Promise((r) => setTimeout(r, 500));
@@ -1658,8 +1661,8 @@
           await invoke("enter_firmware_update", { port });
           await new Promise((r) => setTimeout(r, 2000));
 
-          // Download and flash
-          await invoke("download_and_flash", { downloadUrl: latestFwInfo.download_url });
+          // Flash from cached firmware
+          await invoke("flash_firmware");
         } catch (e) {
           fwOutputBox.textContent += "\nError: " + e + "\n";
         } finally {
