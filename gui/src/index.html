@@ -954,9 +954,10 @@
           case "core":
             return Array.from({ length: metricOptions.cpu_core_count }, (_, i) => `Core ${i}`);
           case "net":
-            return metricOptions.network_interfaces;
+            return ["Total", ...metricOptions.network_interfaces];
           case "disk":
-            return metricOptions.disk_names;
+            if (def.id === "disk_usage") return metricOptions.disk_names;
+            return ["Total", ...metricOptions.disk_names];
           case "gpu":
             return metricOptions.gpu_names;
           default:
@@ -1076,14 +1077,17 @@
           case "swap_usage":
             return m.swap.usage_percent;
           case "net_rx": {
+            if (si === "Total") return m.network.interfaces.reduce((s, i) => s + i.rx_bytes_per_sec, 0);
             const f = m.network.interfaces.find((i) => i.name === si);
             return f ? f.rx_bytes_per_sec : null;
           }
           case "net_tx": {
+            if (si === "Total") return m.network.interfaces.reduce((s, i) => s + i.tx_bytes_per_sec, 0);
             const f = m.network.interfaces.find((i) => i.name === si);
             return f ? f.tx_bytes_per_sec : null;
           }
           case "net_rxtx": {
+            if (si === "Total") return m.network.interfaces.reduce((s, i) => s + i.rx_bytes_per_sec + i.tx_bytes_per_sec, 0);
             const f = m.network.interfaces.find((i) => i.name === si);
             return f ? f.rx_bytes_per_sec + f.tx_bytes_per_sec : null;
           }
@@ -1092,14 +1096,17 @@
             return d ? d.usage_percent : null;
           }
           case "disk_read": {
+            if (si === "Total") return m.disk.disks.reduce((s, d) => s + d.read_bytes_per_sec, 0);
             const d = m.disk.disks.find((d) => `${d.name} (${d.mount_point})` === si);
             return d ? d.read_bytes_per_sec : null;
           }
           case "disk_write": {
+            if (si === "Total") return m.disk.disks.reduce((s, d) => s + d.write_bytes_per_sec, 0);
             const d = m.disk.disks.find((d) => `${d.name} (${d.mount_point})` === si);
             return d ? d.write_bytes_per_sec : null;
           }
           case "disk_rw": {
+            if (si === "Total") return m.disk.disks.reduce((s, d) => s + d.read_bytes_per_sec + d.write_bytes_per_sec, 0);
             const d = m.disk.disks.find((d) => `${d.name} (${d.mount_point})` === si);
             return d ? d.read_bytes_per_sec + d.write_bytes_per_sec : null;
           }

@@ -245,12 +245,12 @@ fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     match metrics {
         Some(m) => MetricOptions {
             cpu_core_count: m.cpu.cores.len(),
-            network_interfaces: m
-                .network
-                .interfaces
-                .iter()
-                .map(|i| i.name.clone())
-                .collect(),
+            network_interfaces: {
+                let mut names: Vec<String> =
+                    m.network.interfaces.iter().map(|i| i.name.clone()).collect();
+                names.sort();
+                names
+            },
             disk_names: m
                 .disk
                 .disks
