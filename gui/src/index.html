@@ -357,8 +357,8 @@
       margin-bottom: 12px;
     }
     .modal-actions button {
-      flex: 1;
       height: 32px;
+      width: 190px;
       border: 1px solid var(--border);
       border-radius: 6px;
       background: var(--bg-input);
@@ -770,7 +770,6 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button id="fw-bootloader-btn">Enter Bootloader</button>
           <button id="fw-update-btn" class="disabled">Update Firmware</button>
         </div>
         <div id="fw-output-box" class="modal-output hidden"></div>
@@ -1545,23 +1544,23 @@
           fwCurrentVer.textContent = "Bootloader";
           fwBadge.classList.add("hidden");
           if (!fwModal.classList.contains("hidden")) {
-            fwBootloaderBtn.disabled = true;
-            if (latestFwInfo) fwUpdateBtn.classList.remove("disabled");
+            fwUpdateBtn.dataset.versionMatch = "false";
+            if (latestFwInfo && fwBtnMode === "update") fwUpdateBtn.classList.remove("disabled");
           }
         } else if (ports.length > 0) {
           const ver = await invoke("get_firmware_version").catch(() => null);
           fwVersionEl.textContent = ver || "";
           fwCurrentVer.textContent = ver || "N/A";
-          // Show firmware update badge (hide if GUI badge is already showing)
           const guiBadgeVisible = !document.getElementById("update-badge").classList.contains("hidden");
           if (ver && latestFwInfo && ver !== latestFwInfo.version && !guiBadgeVisible) {
             fwBadge.classList.remove("hidden");
           } else {
             fwBadge.classList.add("hidden");
           }
-          if (!fwModal.classList.contains("hidden")) {
-            fwBootloaderBtn.disabled = !ver;
-            if (ver && latestFwInfo && ver === latestFwInfo.version) {
+          if (!fwModal.classList.contains("hidden") && fwBtnMode === "update") {
+            const match = ver && latestFwInfo && ver === latestFwInfo.version;
+            fwUpdateBtn.dataset.versionMatch = match ? "true" : "false";
+            if (match) {
               fwUpdateBtn.classList.add("disabled");
             } else if (latestFwInfo) {
               fwUpdateBtn.classList.remove("disabled");
@@ -1571,8 +1570,7 @@
           fwVersionEl.textContent = "";
           fwCurrentVer.textContent = "N/A";
           fwBadge.classList.add("hidden");
-          if (!fwModal.classList.contains("hidden")) {
-            fwBootloaderBtn.disabled = true;
+          if (!fwModal.classList.contains("hidden") && fwBtnMode === "update") {
             fwUpdateBtn.classList.add("disabled");
           }
         }
@@ -1589,13 +1587,40 @@
       const fwModal = document.getElementById("firmware-modal");
       const fwLatestVer = document.getElementById("fw-latest-ver");
       const fwUpdateBtn = document.getElementById("fw-update-btn");
-      const fwBootloaderBtn = document.getElementById("fw-bootloader-btn");
       const fwOutputBox = document.getElementById("fw-output-box");
       let flashUnlisten = null;
+      let fwBtnMode = "update"; // "update" | "force" | "bootloader"
+      const fwBtnDefaultText = "Update Firmware";
+
+      function updateFwBtnModifier(e) {
+        if (fwModal.classList.contains("hidden") || fwUpdateBtn.classList.contains("busy")) return;
+        if (e.altKey) {
+          fwBtnMode = "bootloader";
+          fwUpdateBtn.textContent = "Enter Bootloader";
+          fwUpdateBtn.classList.remove("disabled");
+        } else if (e.shiftKey) {
+          fwBtnMode = "force";
+          fwUpdateBtn.textContent = "Update Firmware (force)";
+          fwUpdateBtn.classList.remove("disabled");
+        } else {
+          fwBtnMode = "update";
+          fwUpdateBtn.textContent = fwBtnDefaultText;
+          // Restore disabled state based on version match
+          if (!latestFwInfo || fwUpdateBtn.dataset.versionMatch === "true") {
+            fwUpdateBtn.classList.add("disabled");
+          } else {
+            fwUpdateBtn.classList.remove("disabled");
+          }
+        }
+      }
+      document.addEventListener("keydown", updateFwBtnModifier);
+      document.addEventListener("keyup", updateFwBtnModifier);
 
       function closeFwModal() {
         fwModal.classList.add("hidden");
         if (flashUnlisten) { flashUnlisten(); flashUnlisten = null; }
+        fwBtnMode = "update";
+        fwUpdateBtn.textContent = fwBtnDefaultText;
       }
 
       document.getElementById("firmware-modal-close").addEventListener("click", closeFwModal);
@@ -1606,9 +1631,9 @@
         fwOutputBox.classList.add("hidden");
         fwOutputBox.textContent = "";
         fwUpdateBtn.classList.add("disabled");
-        fwBootloaderBtn.disabled = true;
-        fwOutputBox.classList.add("hidden");
-        fwOutputBox.textContent = "";
+        fwUpdateBtn.textContent = fwBtnDefaultText;
+        fwUpdateBtn.dataset.versionMatch = "false";
+        fwBtnMode = "update";
         fwModal.classList.remove("hidden");
 
         // Check if already in bootloader mode
@@ -1617,7 +1642,6 @@
         // Current version
         const currentVer = await invoke("get_firmware_version").catch(() => null);
         fwCurrentVer.textContent = inBootloader ? "Bootloader" : (currentVer || "N/A");
-        fwBootloaderBtn.disabled = inBootloader || !currentVer;
 
         // Latest version (always fresh, never use stale cache)
         fwLatestVer.textContent = "--";
@@ -1625,10 +1649,9 @@
 
         if (latestFwInfo) {
           fwLatestVer.textContent = latestFwInfo.version;
-          if (inBootloader) {
-            // Already in bootloader — always allow update
-            fwUpdateBtn.classList.remove("disabled");
-          } else if (currentVer && currentVer === latestFwInfo.version) {
+          const match = !inBootloader && currentVer && currentVer === latestFwInfo.version;
+          fwUpdateBtn.dataset.versionMatch = match ? "true" : "false";
+          if (match) {
             fwUpdateBtn.classList.add("disabled");
           } else {
             fwUpdateBtn.classList.remove("disabled");
@@ -1638,27 +1661,48 @@
         }
       });
 
-      // Shift+Click bypasses version-match disable
-      fwUpdateBtn.addEventListener("click", async (e) => {
+      fwUpdateBtn.addEventListener("click", async () => {
         if (fwUpdateBtn.classList.contains("busy")) return;
-        if (fwUpdateBtn.classList.contains("disabled") && !e.shiftKey) return;
-        if (!latestFwInfo) return;
+        if (fwUpdateBtn.classList.contains("disabled")) return;
 
-        const alreadyInBootloader = await invoke("is_in_bootloader").catch(() => false);
+        const mode = fwBtnMode;
         const port = serialPortSel.value;
+
+        // Bootloader-only mode (Ctrl held)
+        if (mode === "bootloader") {
+          if (!port) {
+            fwOutputBox.classList.remove("hidden");
+            fwOutputBox.textContent = "Error: No serial port selected";
+            return;
+          }
+          stopPolling();
+          await new Promise((r) => setTimeout(r, 500));
+          try { await invoke("close_serial_port"); } catch {}
+          await new Promise((r) => setTimeout(r, 300));
+          try {
+            await invoke("enter_firmware_update", { port });
+          } catch (e) {
+            fwOutputBox.classList.remove("hidden");
+            fwOutputBox.textContent = "Error: " + e;
+          }
+          serialPortSel.value = "";
+          startPolling();
+          return;
+        }
+
+        // Update / Force update
+        if (!latestFwInfo) return;
+        const alreadyInBootloader = await invoke("is_in_bootloader").catch(() => false);
         if (!port && !alreadyInBootloader) {
           fwOutputBox.classList.remove("hidden");
           fwOutputBox.textContent = "Error: No serial port selected";
           return;
         }
 
-        // Disable buttons during flash
         fwUpdateBtn.classList.add("busy");
-        fwBootloaderBtn.classList.add("busy");
         fwOutputBox.classList.remove("hidden");
-        fwOutputBox.textContent = e.shiftKey ? "Force updating firmware...\n" : "";
+        fwOutputBox.textContent = mode === "force" ? "Force updating firmware...\n" : "";
 
-        // Listen for flash output events (unlisten previous if any)
         if (flashUnlisten) { flashUnlisten(); flashUnlisten = null; }
         flashUnlisten = await listen("flash-output", (event) => {
           fwOutputBox.textContent += event.payload + "\n";
@@ -1666,54 +1710,33 @@
         });
 
         try {
-          // Download firmware first (before entering bootloader, to avoid bricking on failure)
           await invoke("download_firmware", { downloadUrl: latestFwInfo.download_url });
 
           if (alreadyInBootloader) {
             fwOutputBox.textContent += "Bootloader already active, skipping bootloader entry...\n";
           } else {
-            // Stop polling and close serial port
             stopPolling();
             await new Promise((r) => setTimeout(r, 500));
             try { await invoke("close_serial_port"); } catch {}
             await new Promise((r) => setTimeout(r, 300));
 
-            // Enter bootloader mode
             fwOutputBox.textContent += "Entering bootloader...\n";
             await invoke("enter_firmware_update", { port });
             await new Promise((r) => setTimeout(r, 2000));
           }
 
-          // Flash from cached firmware
           await invoke("flash_firmware");
         } catch (e) {
           fwOutputBox.textContent += "\nError: " + e + "\n";
         } finally {
           fwUpdateBtn.classList.remove("busy");
-          fwBootloaderBtn.classList.remove("busy");
-          // Wait for device to re-enumerate after reset
+          fwUpdateBtn.textContent = fwBtnDefaultText;
+          fwBtnMode = "update";
           await new Promise((r) => setTimeout(r, 3000));
           serialPortSel.value = "";
           await refreshSerialPorts();
           startPolling();
         }
-      });
-
-      fwBootloaderBtn.addEventListener("click", async () => {
-        const port = serialPortSel.value;
-        if (!port) return;
-        stopPolling();
-        await new Promise((r) => setTimeout(r, 500));
-        try { await invoke("close_serial_port"); } catch {}
-        await new Promise((r) => setTimeout(r, 300));
-        try {
-          await invoke("enter_firmware_update", { port });
-        } catch (e) {
-          fwOutputBox.classList.remove("hidden");
-          fwOutputBox.textContent = "Error: " + e;
-        }
-        serialPortSel.value = "";
-        startPolling();
       });
 
       // ── Config save/load ──

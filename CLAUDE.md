@@ -68,6 +68,14 @@ CH32X033F8P6 (20-pin) shares one AFIO remap value per timer. Only 7 of the 10 PC
 - `nvml-wrapper` (Windows/Linux) or CoreFoundation (macOS) for GPU
 - `reqwest` for Claude API usage fetching
 - `nusb` for USB device enumeration (hotplug watch + firmware version reading)
+- `wchisp` (git) for firmware flashing via WCH ISP bootloader
+
+### Firmware update (GUI)
+- `gui/src-tauri/src/flasher.rs` handles download, flash, and verify via `wchisp` crate
+- GUI detects WCH bootloader USB devices (VID `0x4348`/`0x1a86`, PID `0x55e0`) via `is_in_bootloader()` command
+- Hotplug watches both normal device (VID `0x0200`, PID `0x02DB`) and bootloader VID/PIDs
+- If device is already in bootloader mode, firmware update skips serial port and bootloader entry
+- Firmware modal button modifier keys: **Alt/Option** → "Enter Bootloader", **Shift** → "Update Firmware (force)"
 
 ### Release workflow CI caching
 - **Rust builds** (firmware + GUI): `Swatinem/rust-cache@v2` caches `target/` dirs, auto-invalidates on `Cargo.lock` changes
