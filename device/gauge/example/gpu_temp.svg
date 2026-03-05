@@ -1,0 +1,99 @@
+<svg width="51.5mm" height="42.04mm" viewBox="-120.5 -120.5 1241 1013" xmlns="http://www.w3.org/2000/svg">
+  <path d="
+    M 0 0
+    L 1000 0
+    L 1000 772
+    L 736 772
+    L 736 620
+    A 291 291 0 0 0 258 620
+    L 258 772
+    L 0 772
+    Z
+    M 129 608 A 27 27 0 1 0 75 608 A 27 27 0 1 0 129 608
+    M 916 608 A 27 27 0 1 0 862 608 A 27 27 0 1 0 916 608
+  " fill="none" stroke="gray" stroke-width="2" fill-rule="evenodd" />
+
+  <g transform="translate(494, 746)">
+
+    <path d="M -336.7 -456.2 A 567 567 0 0 1 336.7 -456.2" fill="none" stroke="#111" stroke-width="9" stroke-linecap="butt" />
+
+    <g stroke="#111" stroke-width="5.5" stroke-linecap="butt">
+      <line y1="-567" y2="-600" transform="rotate(-34.2)" />
+      <line y1="-567" y2="-600" transform="rotate(-32.4)" />
+      <line y1="-567" y2="-600" transform="rotate(-30.6)" />
+      <line y1="-567" y2="-600" transform="rotate(-28.8)" />
+      <line y1="-567" y2="-600" transform="rotate(-25.2)" />
+      <line y1="-567" y2="-600" transform="rotate(-23.4)" />
+      <line y1="-567" y2="-600" transform="rotate(-21.6)" />
+      <line y1="-567" y2="-600" transform="rotate(-19.8)" />
+      <line y1="-567" y2="-600" transform="rotate(-16.2)" />
+      <line y1="-567" y2="-600" transform="rotate(-14.4)" />
+      <line y1="-567" y2="-600" transform="rotate(-12.6)" />
+      <line y1="-567" y2="-600" transform="rotate(-10.8)" />
+      <line y1="-567" y2="-600" transform="rotate(-7.2)" />
+      <line y1="-567" y2="-600" transform="rotate(-5.4)" />
+      <line y1="-567" y2="-600" transform="rotate(-3.6)" />
+      <line y1="-567" y2="-600" transform="rotate(-1.8)" />
+      <line y1="-567" y2="-600" transform="rotate(1.8)" />
+      <line y1="-567" y2="-600" transform="rotate(3.6)" />
+      <line y1="-567" y2="-600" transform="rotate(5.4)" />
+      <line y1="-567" y2="-600" transform="rotate(7.2)" />
+      <line y1="-567" y2="-600" transform="rotate(10.8)" />
+      <line y1="-567" y2="-600" transform="rotate(12.6)" />
+      <line y1="-567" y2="-600" transform="rotate(14.4)" />
+      <line y1="-567" y2="-600" transform="rotate(16.2)" />
+      <line y1="-567" y2="-600" transform="rotate(19.8)" />
+      <line y1="-567" y2="-600" transform="rotate(21.6)" />
+      <line y1="-567" y2="-600" transform="rotate(23.4)" />
+      <line y1="-567" y2="-600" transform="rotate(25.2)" />
+      <line y1="-567" y2="-600" transform="rotate(28.8)" />
+      <line y1="-567" y2="-600" transform="rotate(30.6)" />
+      <line y1="-567" y2="-600" transform="rotate(32.4)" />
+      <line y1="-567" y2="-600" transform="rotate(34.2)" />
+    </g>
+
+    <g stroke="#111" stroke-width="6.5" stroke-linecap="butt">
+      <line y1="-567" y2="-617" transform="rotate(-27)" />
+      <line y1="-567" y2="-617" transform="rotate(-9)" />
+      <line y1="-567" y2="-617" transform="rotate(9)" />
+      <line y1="-567" y2="-617" transform="rotate(27)" />
+    </g>
+
+    <g stroke="#111" stroke-width="9" stroke-linecap="butt">
+      <line y1="-567" y2="-637" transform="rotate(-36)" />
+      <line y1="-567" y2="-637" transform="rotate(-18)" />
+      <line y1="-567" y2="-637" transform="rotate(0)" />
+      <line y1="-567" y2="-637" transform="rotate(18)" />
+      <line y1="-567" y2="-637" transform="rotate(36)" />
+    </g>
+
+    <g font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="bold" fill="#111" text-anchor="middle">
+      <text y="-655" transform="rotate(-36)">0</text>
+      <text y="-655" transform="rotate(-18)">25</text>
+      <text y="-655" transform="rotate(0)">50</text>
+      <text y="-655" transform="rotate(18)">75</text>
+      <text y="-655" transform="rotate(36)">100</text>
+    </g>
+  </g>
+
+  <text x="494" y="370" font-family="Arial, Helvetica, sans-serif" font-size="125" font-weight="bold" fill="#111" text-anchor="middle">°C</text>
+
+  <text x="860" y="480" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="bold" fill="#111" text-anchor="middle" letter-spacing="1">GPU</text>
+
+  <g fill="#111">
+    <text x="42" y="477" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="bold">&#x2212;</text>
+    <g transform="translate(92, 426)" fill="none" stroke="#111" stroke-width="8">
+      <path d="M 0 52 L 0 22 A 14 14 0 0 1 28 22 L 28 52" stroke-linecap="butt"/>
+      <line x1="8" y1="49.5" x2="20" y2="49.5" stroke-width="5"/>
+    </g>
+    <text x="135" y="477" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="bold">2.5</text>
+    <g transform="translate(233, 438)">
+      <path d="M 21 0 L 0 36 L 42 36 Z" fill="none" stroke="#111" stroke-width="6" stroke-linejoin="miter"/>
+      <line x1="21" y1="13" x2="21" y2="25" stroke="#111" stroke-width="5" stroke-linecap="butt"/>
+      <circle cx="21" cy="30" r="3" fill="#111"/>
+    </g>
+  </g>
+
+  <line x1="42" y1="510" x2="280" y2="510" stroke="#111" stroke-width="6" stroke-linecap="butt" />
+
+</svg>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gauge Example Gallery</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 48px 32px; }
+
+  header { text-align: center; margin-bottom: 48px; }
+  header h1 { font-size: 28px; color: #f5f5f5; font-weight: 700; letter-spacing: -0.5px; }
+  header p { margin-top: 8px; font-size: 14px; color: #6c7086; }
+
+  section { margin-bottom: 40px; }
+  section .section-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  }
+  section .section-header h2 {
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #89b4fa; white-space: nowrap;
+  }
+  section .section-header::after {
+    content: ''; flex: 1; height: 1px; background: #2a2a42;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    background: #24243a;
+    border: 1px solid #2a2a42;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .card:hover {
+    border-color: #363654;
+    background: #2a2a42;
+  }
+  .card img {
+    width: 100%; height: auto;
+    background: #fff;
+    border-radius: 8px;
+  }
+  .card .name {
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #a6adc8;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 600px) {
+    .container { padding: 24px 16px; }
+    header { margin-bottom: 32px; }
+    header h1 { font-size: 22px; }
+    .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .card { padding: 10px; }
+    .card .name { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Gauge Example Gallery</h1>
+
+  </header>
+  <div id="gallery"></div>
+</div>
+
+<script>
+const labels = {
+  cpu_usage: 'CPU Utilization',
+  cpu_core_usage: 'Core Utilization',
+  cpu_temp: 'CPU Temperature',
+  cpu_core_freq: 'Core Frequency',
+  cpu_power: 'CPU Power',
+  gpu_util: 'GPU Utilization',
+  gpu_vram: 'GPU VRAM Usage',
+  gpu_temp: 'GPU Temperature',
+  gpu_clock: 'GPU Clock',
+  gpu_power: 'GPU Power',
+  mem_usage: 'Memory Usage',
+  swap_usage: 'Swap Usage',
+  net_rx: 'Network RX Speed',
+  net_tx: 'Network TX Speed',
+  net_rxtx: 'Network RX/TX Speed',
+  disk_usage: 'Disk Usage',
+  disk_read: 'Disk Read Speed',
+  disk_write: 'Disk Write Speed',
+  disk_rw: 'Disk R/W Speed',
+  claude_5h: 'Claude 5h Limit',
+  claude_5h_reset: 'Claude 5h Reset',
+  claude_7d: 'Claude 7d Limit',
+  claude_7d_reset: 'Claude 7d Reset',
+  claude_code_tokens: 'Claude Code Total Tokens Today',
+  claude_code_io_tokens: 'Claude Code I/O Tokens Today',
+  claude_code_input_tokens: 'Claude Code Input Tokens Today',
+  claude_code_output_tokens: 'Claude Code Output Tokens Today',
+  claude_code_cache_creation_tokens: 'Claude Code Cache Write Today',
+  claude_code_cache_read_tokens: 'Claude Code Cache Read Today',
+  claude_code_cost: 'Claude Code Cost Today',
+};
+
+const sections = [
+  { title: 'CPU', files: ['cpu_usage', 'cpu_core_usage', 'cpu_temp', 'cpu_core_freq', 'cpu_power'] },
+  { title: 'GPU', files: ['gpu_util', 'gpu_vram', 'gpu_temp', 'gpu_clock', 'gpu_power'] },
+  { title: 'Memory', files: ['mem_usage', 'swap_usage'] },
+  { title: 'Network', files: ['net_rx', 'net_tx', 'net_rxtx'] },
+  { title: 'Disk', files: ['disk_usage', 'disk_read', 'disk_write', 'disk_rw'] },
+  { title: 'Claude API', files: ['claude_5h', 'claude_5h_reset', 'claude_7d', 'claude_7d_reset'] },
+  { title: 'Claude Code', files: ['claude_code_tokens', 'claude_code_io_tokens', 'claude_code_input_tokens', 'claude_code_output_tokens', 'claude_code_cache_creation_tokens', 'claude_code_cache_read_tokens', 'claude_code_cost'] },
+];
+
+const gallery = document.getElementById('gallery');
+let total = 0;
+
+for (const section of sections) {
+  const sec = document.createElement('section');
+  sec.innerHTML = `<div class="section-header"><h2>${section.title}</h2></div>`;
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+
+  for (const file of section.files) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<img src="${file}.svg" alt="${labels[file]}"><div class="name">${labels[file]}</div>`;
+    grid.appendChild(card);
+    total++;
+  }
+
+  sec.appendChild(grid);
+  gallery.appendChild(sec);
+}
+
+
+</script>
+</body>
+</html>
