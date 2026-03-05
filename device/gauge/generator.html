@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Gauge Generator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { display: flex; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; }
+
+  .sidebar {
+    width: 320px; min-width: 320px; background: #1e1e2e; color: #cdd6f4; padding: 24px;
+    display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
+  }
+  .sidebar h1 { font-size: 18px; color: #f5f5f5; margin-bottom: 4px; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 13px; color: #a6adc8; }
+  .field input[type="number"], .field input[type="text"] {
+    background: #313244; border: 1px solid #45475a; color: #cdd6f4; border-radius: 6px;
+    padding: 8px 10px; font-size: 14px; outline: none;
+  }
+  .field input:focus { border-color: #89b4fa; }
+
+  .buttons { display: flex; flex-direction: column; gap: 8px; }
+  .buttons button {
+    padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  button.download { background: #89b4fa; color: #1e1e2e; }
+  button.download:hover { background: #74c7ec; }
+  button.print { background: #a6e3a1; color: #1e1e2e; }
+  button.print:hover { background: #94e2d5; }
+
+  .print-notice { margin-top: auto;
+    background: #313244; border-radius: 8px; padding: 12px 14px;
+    font-size: 12px; line-height: 1.6; color: #a6adc8;
+  }
+  .print-notice p { margin-bottom: 4px; }
+  .print-notice strong { color: #f5f5f5; }
+  .print-notice ul { margin: 4px 0 0 18px; }
+  .print-notice li { margin-bottom: 2px; }
+
+  @media print {
+    body { display: block; height: auto; }
+    .sidebar { display: none; }
+    .preview {
+      display: block; padding: 0; background: #fff;
+      width: auto; height: auto; flex: none;
+    }
+    .preview svg { width: 41.5mm !important; height: 32mm !important; }
+  }
+
+  .preview {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: #f5f5f5; padding: 32px; overflow: hidden; min-width: 0;
+  }
+  .preview svg { width: 100%; height: 100%; object-fit: contain; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h1>Custom Gauge Generator</h1>
+
+  <div class="field">
+    <label>Major tick count</label>
+    <input type="number" id="majorTickCount" value="5" min="2">
+  </div>
+  <div class="field">
+    <label>Medium ticks per major</label>
+    <input type="number" id="mediumPerMajor" value="1" min="0">
+  </div>
+  <div class="field">
+    <label>Small ticks per medium</label>
+    <input type="number" id="smallPerMedium" value="4" min="0">
+  </div>
+  <div class="field">
+    <label>Max value</label>
+    <input type="number" id="maxValue" value="100" min="0" step="any">
+  </div>
+  <div class="field">
+    <label>Center text</label>
+    <input type="text" id="centerText" value="V">
+  </div>
+  <div class="field">
+    <label>Center text size</label>
+    <input type="number" id="centerTextSize" value="125" min="1">
+  </div>
+  <div class="field">
+    <label>Right text</label>
+    <input type="text" id="rightText" value="91C4">
+  </div>
+  <div class="field">
+    <label>Right text position from right</label>
+    <input type="number" id="rightTextMargin" value="140" min="0">
+  </div>
+
+  <div class="print-notice">
+    <p><strong>Print settings</strong></p>
+    <p>Gauge panel cutout: 41.5 × 32mm<br>Ensure correct size with following options:</p>
+    <ul>
+      <li>Scale: <strong>100%</strong> (not Fit to page)</li>
+      <li>Margins: <strong>None</strong></li>
+      <li>Headers and footers: <strong>Off</strong></li>
+      <li>Backgrounds: <strong>Off</strong></li>
+    </ul>
+  </div>
+  <div class="buttons">
+    <button class="download" onclick="downloadSVG()">Download SVG</button>
+    <button class="print" onclick="window.print()">Print</button>
+  </div>
+</div>
+
+<div class="preview" id="preview"></div>
+
+<script>
+const ARC_START = -36;
+const ARC_END = 36;
+const ARC_SPAN = ARC_END - ARC_START; // 72
+
+const RADIUS = 567;
+const CX = 494;
+const CY = 746;
+
+function round4(n) {
+  return Math.round(n * 10000) / 10000;
+}
+
+function escapeXml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function generateSVG() {
+  const majorTickCount = Math.max(2, parseInt(document.getElementById('majorTickCount').value) || 2);
+  const majorDivisions = majorTickCount - 1;
+  const mediumPerMajor = Math.max(0, parseInt(document.getElementById('mediumPerMajor').value) || 0);
+  const smallPerMedium = Math.max(0, parseInt(document.getElementById('smallPerMedium').value) || 0);
+  const maxValue = parseFloat(document.getElementById('maxValue').value) || 0;
+  const labels = [];
+  for (let i = 0; i <= majorDivisions; i++) {
+    const v = maxValue * i / majorDivisions;
+    labels.push(Number.isInteger(v) ? v.toString() : v.toFixed(1).replace(/\.?0+$/, ''));
+  }
+  const centerText = document.getElementById('centerText').value;
+  const centerTextSize = parseInt(document.getElementById('centerTextSize').value) || 125;
+  const rightText = document.getElementById('rightText').value;
+  const rightTextMarginVal = document.getElementById('rightTextMargin').value;
+  const rightTextMargin = rightTextMarginVal !== '' ? parseInt(rightTextMarginVal) : 200;
+
+  // Compute major tick angles
+  const majorAngles = [];
+  for (let i = 0; i <= majorDivisions; i++) {
+    majorAngles.push(round4(ARC_START + i * (ARC_SPAN / majorDivisions)));
+  }
+
+  // Compute medium tick angles (between majors, excluding endpoints)
+  const mediumAngles = [];
+  if (mediumPerMajor > 0) {
+    for (let i = 0; i < majorDivisions; i++) {
+      const a0 = majorAngles[i];
+      const a1 = majorAngles[i + 1];
+      const step = (a1 - a0) / (mediumPerMajor + 1);
+      for (let j = 1; j <= mediumPerMajor; j++) {
+        mediumAngles.push(round4(a0 + j * step));
+      }
+    }
+  }
+
+  // Compute small tick angles (between adjacent major/medium ticks, excluding endpoints)
+  const smallAngles = [];
+  if (smallPerMedium > 0) {
+    // Build sorted list of all major+medium angles
+    const allBigTicks = [...majorAngles, ...mediumAngles].sort((a, b) => a - b);
+    for (let i = 0; i < allBigTicks.length - 1; i++) {
+      const a0 = allBigTicks[i];
+      const a1 = allBigTicks[i + 1];
+      const step = (a1 - a0) / (smallPerMedium + 1);
+      for (let j = 1; j <= smallPerMedium; j++) {
+        smallAngles.push(round4(a0 + j * step));
+      }
+    }
+  }
+
+  // Arc endpoints (fixed geometry: -36° to +36° on radius 567)
+  const x1 = -336.7, y1 = -456.2;
+  const x2 = 336.7, y2 = -456.2;
+
+  // Build tick lines
+  const smallLines = smallAngles.map(a =>
+    `      <line y1="-567" y2="-600" transform="rotate(${a})" />`
+  ).join('\n');
+
+  const mediumLines = mediumAngles.map(a =>
+    `      <line y1="-567" y2="-617" transform="rotate(${a})" />`
+  ).join('\n');
+
+  const majorLines = majorAngles.map(a =>
+    `      <line y1="-567" y2="-637" transform="rotate(${a})" />`
+  ).join('\n');
+
+  // Build label texts
+  const labelTexts = majorAngles.map((a, i) => {
+    const text = i < labels.length ? escapeXml(labels[i]) : '';
+    return `      <text y="-655" transform="rotate(${a})">${text}</text>`;
+  }).join('\n');
+
+  return `<svg width="51.5mm" height="42.04mm" viewBox="-120.5 -120.5 1241 1013" xmlns="http://www.w3.org/2000/svg">
+  <path d="
+    M 0 0
+    L 1000 0
+    L 1000 772
+    L 736 772
+    L 736 620
+    A 291 291 0 0 0 258 620
+    L 258 772
+    L 0 772
+    Z
+    M 129 608 A 27 27 0 1 0 75 608 A 27 27 0 1 0 129 608
+    M 916 608 A 27 27 0 1 0 862 608 A 27 27 0 1 0 916 608
+  " fill="none" stroke="gray" stroke-width="2" fill-rule="evenodd" />
+
+  <g transform="translate(${CX}, ${CY})">
+
+    <path d="M ${x1} ${y1} A ${RADIUS} ${RADIUS} 0 0 1 ${x2} ${y2}" fill="none" stroke="#111" stroke-width="9" stroke-linecap="butt" />
+
+${smallLines ? `    <g stroke="#111" stroke-width="5.5" stroke-linecap="butt">\n${smallLines}\n    </g>\n` : ''}
+${mediumLines ? `    <g stroke="#111" stroke-width="6.5" stroke-linecap="butt">\n${mediumLines}\n    </g>\n` : ''}
+    <g stroke="#111" stroke-width="9" stroke-linecap="butt">
+${majorLines}
+    </g>
+
+    <g font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="bold" fill="#111" text-anchor="middle">
+${labelTexts}
+    </g>
+  </g>
+
+  <text x="${CX}" y="370" font-family="Arial, Helvetica, sans-serif" font-size="${centerTextSize}" font-weight="bold" fill="#111" text-anchor="middle">${escapeXml(centerText)}</text>
+
+  <text x="${1000 - rightTextMargin}" y="480" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="bold" fill="#111" text-anchor="middle" letter-spacing="1">${escapeXml(rightText)}</text>
+
+  <g fill="#111">
+    <text x="42" y="477" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="bold">&#x2212;</text>
+    <g transform="translate(92, 426)" fill="none" stroke="#111" stroke-width="8">
+      <path d="M 0 52 L 0 22 A 14 14 0 0 1 28 22 L 28 52" stroke-linecap="butt"/>
+      <line x1="8" y1="49.5" x2="20" y2="49.5" stroke-width="5"/>
+    </g>
+    <text x="135" y="477" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="bold">2.5</text>
+    <g transform="translate(233, 438)">
+      <path d="M 21 0 L 0 36 L 42 36 Z" fill="none" stroke="#111" stroke-width="6" stroke-linejoin="miter"/>
+      <line x1="21" y1="13" x2="21" y2="25" stroke="#111" stroke-width="5" stroke-linecap="butt"/>
+      <circle cx="21" cy="30" r="3" fill="#111"/>
+    </g>
+  </g>
+
+  <line x1="42" y1="510" x2="280" y2="510" stroke="#111" stroke-width="6" stroke-linecap="butt" />
+
+</svg>`;
+}
+
+function render() {
+  document.getElementById('preview').innerHTML = generateSVG();
+}
+
+function downloadSVG() {
+  const svg = generateSVG();
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'gauge.svg';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Live update on any input change
+document.querySelectorAll('.sidebar input').forEach(el => {
+  el.addEventListener('input', render);
+});
+
+render();
+</script>
+</body>
+</html>
