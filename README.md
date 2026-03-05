@@ -2,58 +2,61 @@
 
 ![](.github/images/banner/banner.png)
 
-DIY retro analog gauge meters that display your system metrics in real time, including Claude usage stats!
+DIY retro analog gauge meters that display system metrics in real time, including Claude usage stats!
 
-## Features
+## Usage
 
-Supports Linux, macos, and Windows.
+Pointify Desktop runs on macOS, Windows, and Linux, driving up to 7 gauges with customizable metrics.
 
-Up to 7 gauges with customizable metrics:
+Its software gauges work without the device, but watching real needles twitch is way better. So go build one!
+
+![](.github/images/gui.png)
+
+1. Install Pointify Desktop from the [latest release](https://github.com/luftaquila/pointify/releases/latest) and open it.
+    * On macOS, run the following command once after installation, as the app is not code-signed.
+    * `xattr -dr com.apple.quarantine /Applications/Pointify.app`
+1. Connect your Pointify to the computer and set up gauges to your preference.
+
+<details>
+
+<summary>Full list of supported metrics</summary>
 
 - 🕹️ Hardware
   - CPU
     - Utilization
     - Temperature
-    - Core Frequency
-  - Memory
-    - RAM Usage
-    - Swap Usage
+    - Clock Frequency
+    - Power Consumption
   - GPU
     - Utilization
     - Temperature
-    - Power
+    - Clock Frequency
+    - Power Consumption
     - VRAM Usage
+  - Memory
+    - RAM and Swap Usage
   - Network
-    - RX Speed
-    - TX Speed
-    - RX/TX Speed
+    - RX, TX and RX/TX Speed
   - Disk
     - Usage
-    - I/O Speed
+    - Read, Write and R/W Speed
 - **🤖 Claude Usage Stats**
   - Usage Limits
-    - 5h session limit
-    - 5h session reset time
-    - Weekly limit
-    - Weekly reset time
+    - 5h session limit and reset time
+    - Weekly limit and reset time
   - Claude Code stats
-    - Today's total tokens (with cache)
-    - Today's I/O tokens
-    - Today's input / output tokens
-    - Today's cache write / read tokens
+    - Today's total tokens
+    - Today's input, output and I/O tokens
+    - Today's cache read and write tokens
     - Today's cost ($)
 
-## Usage
-
-1. Install Pointify Desktop from the [latest release](https://github.com/luftaquila/pointify/releases).
-1. Connect your device to the computer.
-1. Launch Pointify Desktop and select your device from the `Serial Port` in the sidebar.
+</details>
 
 > [!NOTE]
-> The following metrics have some limitations.
-> * CPU Temperature: Not available on Windows.
-> * GPU metrics: Not supported for AMD graphics cards.
-> * GPU VRAM Usage: Not available on Apple Silicon.
+> Some metrics have platform/hardware limitations.
+> * **CPU Temperature and Power**: Not available on Windows.
+> * **GPU metrics**: Not supported on AMD graphics cards.
+> * **GPU VRAM Usage**: Not available on Apple Silicon.
 
 ### Optional setup
 
@@ -61,15 +64,10 @@ To fetch Claude usage limits (5h session and weekly), Pointify needs your browse
 
 Claude Code stats are collected from local logs and do not require credentials.
 
-> [!IMPORTANT]
+> [!NOTE]
 > Credentials are stored locally and only used to fetch usage data directly from Claude. No information is sent to any third-party server.
 > See the `get_claude_usage` function in [lib.rs](https://github.com/luftaquila/pointify/blob/v2/gui/src-tauri/src/lib.rs) for details.
 
-> [!TIP]
-> The location of the `.claude.env` varies by OS.
-> * Linux: *$HOME/.config/pointify*
-> * macOS: *$HOME/Library/Application Support/pointify*
-> * Windows: *%USERPROFILE%\AppData\Roaming\pointify*
 <details>
 
 <summary>Firefox</summary>
@@ -98,17 +96,59 @@ Claude Code stats are collected from local logs and do not require credentials.
 
 ## Do It Yourself!
 
-Pointify is an open-source and open-hardware project. You can build your own Pointify device at home.
+Pointify is fully open-source and open-hardware. Build your own device at home!
 
-### Build PCB
+### 1. Build PCB
 
-![](.github/images/pcb/pointify-pcb-transparent.png)
+![](.github/images/pcb.png)
 
-KiCad schematics and PCB layout files are in [device/hardware/](https://github.com/luftaquila/pointify/tree/v2/device/hardware).
+1. Download `pointify-hardware.zip` from the [latest release](https://github.com/luftaquila/pointify/releases/latest) and unzip.
+1. Gerber, BOM, and CPL files are in the `pcb/` directory. Use them to place a PCB assembly order from manufacturers such as JLCPCB.
 
-### Upload Firmware
+### 2. Upload Firmware
 
-### 3D-Print Housing and Assembly
+If your board is fresh and the MCU has never been flashed, it will always boot into USB bootloader mode.
+
+1. Connect your board to the computer.
+1. Open Pointify Desktop and click the chip icon at the bottom of the sidebar.
+
+`CURRENT` version will show as `Bootloader`. Click the `Update Firmware` button to flash it.
+
+> [!NOTE]
+> If your computer is running Windows and `CURRENT` shows as `N/A`, it means the CH372 driver is missing.
+> Press the `Shift` key and the button will change to `Update Firmware (force)`.
+> The force install process will automatically detect and install the missing driver.
+> Alternatively, you can install the driver manually from [here](https://www.wch-ic.com/downloads/CH372DRV_EXE.html).
+
+### 3. 3D-Print Housing and Assembly
+
+#### Prerequisites
+
+* 6x M2*8mm bolts
+* 91C4 3V DC analog voltmeters, as many as you need
+* Some wires and soldering skills
+* 4x anti-slip pads with radius < 10mm
+
+![](device/3d/gallery.png)
+
+1. Download `pointify-hardware.zip` from the [latest release](https://github.com/luftaquila/pointify/releases/latest) and unzip.
+1. 3D-print the STL files you need from the `3d/` directory.
+1. Install the gauges into the housing.
+1. Connect all negative terminals (near the 0V scale) of the gauge to the GND header on the PCB.
+    * Daisy-chain them, since there's only one GND pad (marked ⏚).
+1. Connect each positive terminal (near the 3V scale) to PWM port #1~7 on the PCB.
+    * The pad right next to the GND is PWM1.
+    * Solder directly to the washer that comes with the gauge, or crimp a ring terminal onto the wire. Crimping is easier to work with but you'll need a crimp tool and ring terminals.
+1. Mount the PCB upside down onto the housing. The USB port faces downward.
+1. Attach the back cover.
+
+### 4. Customize Gauge Panel
+
+Use the [Gauge Panel Generator](https://luftaquila.github.io/pointify/generator.html) to design and print your own gauge panel graphics.
+
+Examples from the [device/gauge/example/](device/gauge/example) directory:
+
+![](device/gauge/example/gallery.png)
 
 ## Development
 
@@ -132,7 +172,7 @@ npm run tauri build     # production
 Requires [nightly Rust](https://rust-lang.github.io/rustup/concepts/channels.html#working-with-nightly-rust).
 
 ```bash
-cargo install probe-rs-tools
+cargo install wchisp --git https://github.com/ch32-rs/wchisp
 
 cd device/firmware
 cargo build --release   # build only
@@ -140,4 +180,13 @@ cargo run --release     # build + flash
 ```
 
 </details>
+
+<hr>
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=luftaquila/pointify&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=luftaquila/pointify&type=Date" />
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=star-history/star-history&type=Date" />
+</picture>
 

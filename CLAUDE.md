@@ -27,7 +27,7 @@ cd gui && npm run tauri build                 # production
 Firmware:
 ```bash
 cd device/firmware && cargo build --release   # build only
-cd device/firmware && cargo run --release     # build + flash via probe-rs
+cd device/firmware && cargo run --release     # build + flash via wchisp
 ```
 
 ## Technical notes
