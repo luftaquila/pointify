@@ -25,6 +25,7 @@ pub struct ClaudeUsageEntry {
 }
 
 pub type ClaudeCache = Arc<Mutex<Option<(Instant, HashMap<String, ClaudeUsageEntry>)>>>;
+pub type SharedClaudeCodeStats = Arc<Mutex<Option<ClaudeCodeStats>>>;
 
 const USER_AGENT: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0";
@@ -326,7 +327,7 @@ fn read_today_stats() -> ClaudeCodeStats {
 
 /// Watch Claude Code JSONL directories for changes and emit stats to the frontend.
 /// Also re-emits periodically (every 30s) to handle frontend reloads.
-pub fn start_watching_stats(app: tauri::AppHandle) {
+pub fn start_watching_stats(app: tauri::AppHandle, shared_stats: SharedClaudeCodeStats) {
     std::thread::spawn(move || {
         let dirs = jsonl_project_dirs();
 
@@ -351,7 +352,11 @@ pub fn start_watching_stats(app: tauri::AppHandle) {
 
         loop {
             // Emit current stats
-            let _ = app.emit("claude-code-stats-changed", read_today_stats());
+            let stats = read_today_stats();
+            if let Ok(mut lock) = shared_stats.lock() {
+                *lock = Some(stats.clone());
+            }
+            let _ = app.emit("claude-code-stats-changed", stats);
 
             // Wait for file change or timeout for periodic refresh
             match rx.recv_timeout(poll_interval) {

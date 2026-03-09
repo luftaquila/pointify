@@ -1,6 +1,7 @@
 mod claude;
 mod flasher;
 mod monitor;
+mod serial_loop;
 
 use std::collections::HashMap;
 use std::fs;
@@ -20,9 +21,10 @@ use tauri::{
 use nusb::MaybeFuture;
 use tauri_plugin_autostart::ManagerExt;
 
-use claude::{ClaudeCache, ClaudeUsageEntry};
+use claude::{ClaudeCache, ClaudeUsageEntry, SharedClaudeCodeStats};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
+use serial_loop::{SerialConfig, SharedSerialConfig};
 
 type SharedSerial = Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>;
 
@@ -77,6 +79,21 @@ fn get_metrics(state: State<SharedMetrics>) -> Option<SystemMetrics> {
 #[tauri::command]
 fn set_interval(interval: State<SharedInterval>, ms: u64) {
     interval.store(ms, Ordering::Relaxed);
+}
+
+#[tauri::command]
+fn update_serial_config(
+    config: SerialConfig,
+    serial_config: State<SharedSerialConfig>,
+    interval: State<SharedInterval>,
+) {
+    interval.store(config.interval_ms, Ordering::Relaxed);
+    if let Ok(mut lock) = serial_config.lock() {
+        if lock.active && !config.active {
+            serial_loop::request_send_zeros();
+        }
+        *lock = config;
+    }
 }
 
 #[tauri::command]
@@ -352,6 +369,8 @@ pub fn run() {
     let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
     let claude_ttl = ClaudeTtl(AtomicU64::new(120));
     let shared_serial: SharedSerial = Arc::new(Mutex::new(None));
+    let shared_claude_code_stats: SharedClaudeCodeStats = Arc::new(Mutex::new(None));
+    let shared_serial_config: SharedSerialConfig = Arc::new(Mutex::new(SerialConfig::default()));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -362,13 +381,16 @@ pub fn run() {
         ))
         .manage(shared_metrics.clone())
         .manage(shared_interval.clone())
-        .manage(claude_cache)
+        .manage(claude_cache.clone())
         .manage(claude_ttl)
-        .manage(shared_serial)
+        .manage(shared_serial.clone())
+        .manage(shared_claude_code_stats.clone())
+        .manage(shared_serial_config.clone())
         .invoke_handler(tauri::generate_handler![
             get_metrics,
             get_metric_options,
             set_interval,
+            update_serial_config,
             list_serial_ports,
             open_serial_port,
             close_serial_port,
@@ -458,14 +480,23 @@ pub fn run() {
             start_watching_serial(app.handle().clone());
 
             // Start hardware monitoring
-            monitor::start_monitoring(shared_metrics, shared_interval);
+            monitor::start_monitoring(shared_metrics.clone(), shared_interval);
 
             // Start .claude.env file watcher
-            let claude_cache: ClaudeCache = app.state::<ClaudeCache>().inner().clone();
-            claude::start_watching(app.handle().clone(), claude_cache);
+            let claude_cache_watch: ClaudeCache = app.state::<ClaudeCache>().inner().clone();
+            claude::start_watching(app.handle().clone(), claude_cache_watch);
 
             // Start ~/.claude/stats-cache.json file watcher
-            claude::start_watching_stats(app.handle().clone());
+            claude::start_watching_stats(app.handle().clone(), shared_claude_code_stats.clone());
+
+            // Start backend serial loop (independent of WebView throttling)
+            serial_loop::start_serial_loop(
+                shared_metrics,
+                shared_serial,
+                shared_serial_config,
+                claude_cache,
+                shared_claude_code_stats,
+            );
 
             Ok(())
         })

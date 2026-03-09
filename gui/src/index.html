@@ -995,9 +995,6 @@
       let isActive = true;
       let pollingMs = 200;
       let smooth = false;
-      const targetPct = new Array(7).fill(0);
-      const currentPct = new Array(7).fill(0);
-      let pollingTimer = null;
 
       // ── Gauge state ──
       function initGaugeState(def) {
@@ -1382,6 +1379,7 @@
       gaugeCountSel.addEventListener("change", () => {
         gaugeCount = parseInt(gaugeCountSel.value);
         updateGaugeVisibility();
+        syncSerialConfig();
         saveConfig();
       });
 
@@ -1404,75 +1402,47 @@
         claudeFetchInFlight = false;
       }
 
-      // ── Smooth: EMA (α=0.51, 100ms tick) ──
-      const SMOOTH_ALPHA = 0.51;
-      let smoothTimer = null;
-
-      function sendSerial(pcts) {
-        if (!serialPortSel.value) return;
-        const vBit = voltage === "5" ? 1 : 0;
-        const data = [];
-        for (let i = 0; i < gaugeCount; i++) {
-          const pctVal = Math.round(pcts[i] * 1023) & 0x3ff;
-          data.push((vBit << 15) | ((i & 0x1f) << 10) | pctVal);
-        }
-        invoke("send_serial_data", { data }).catch(() => {});
-      }
+      // ── UI-only polling (serial data is sent by the Rust backend) ──
+      let pollingTimer = null;
 
       async function poll() {
         try {
           const metrics = await invoke("get_metrics");
           fetchClaudeUsage();
           for (let i = 0; i < gaugeCount; i++) {
-            targetPct[i] = updateGauge(i, metrics);
-          }
-          if (smooth) {
-            for (let i = 0; i < gaugeCount; i++) {
-              currentPct[i] += SMOOTH_ALPHA * (targetPct[i] - currentPct[i]);
-            }
-            sendSerial(currentPct);
-          } else {
-            sendSerial(targetPct);
+            updateGauge(i, metrics);
           }
         } catch {}
-      }
-
-      function startSmoothTimer() {
-        stopSmoothTimer();
-        if (!smooth || !isActive || pollingMs <= 100) return;
-        smoothTimer = setInterval(() => {
-          for (let i = 0; i < gaugeCount; i++) {
-            currentPct[i] += SMOOTH_ALPHA * (targetPct[i] - currentPct[i]);
-          }
-          sendSerial(currentPct);
-        }, 100);
-      }
-
-      function stopSmoothTimer() {
-        if (smoothTimer) { clearInterval(smoothTimer); smoothTimer = null; }
-      }
-
-      function sendZeroData() {
-        if (!serialPortSel.value) return;
-        const vBit = voltage === "5" ? 1 : 0;
-        const data = Array.from({ length: gaugeCount }, (_, i) => (vBit << 15) | ((i & 0x1f) << 10));
-        invoke("send_serial_data", { data }).catch(() => {});
       }
 
       function startPolling() {
         stopPolling();
         if (!isActive) return;
+        syncSerialConfig();
         poll();
         pollingTimer = setInterval(poll, pollingMs);
-        startSmoothTimer();
       }
 
       function stopPolling() {
-        if (pollingTimer) {
-          clearInterval(pollingTimer);
-          pollingTimer = null;
-        }
-        stopSmoothTimer();
+        if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
+      }
+
+      function syncSerialConfig() {
+        invoke("update_serial_config", {
+          config: {
+            active: isActive,
+            gaugeCount: gaugeCount,
+            voltage: voltage,
+            smooth: smooth,
+            intervalMs: pollingMs,
+            gauges: gaugeStates.slice(0, gaugeCount).map((s) => ({
+              metricId: s.metricId,
+              subIndex: s.subIndex,
+              maxValue: s.maxValue,
+              maxUnit: s.maxUnit,
+            })),
+          },
+        });
       }
 
       // ── Active toggle ──
@@ -1481,7 +1451,7 @@
         isActive = toggleActive.checked;
         grid.classList.toggle("paused", !isActive);
         if (isActive) startPolling();
-        else { stopPolling(); sendZeroData(); targetPct.fill(0); currentPct.fill(0); }
+        else { stopPolling(); syncSerialConfig(); }
         saveConfig();
       });
 
@@ -1491,14 +1461,15 @@
         voltage = voltageSel.value;
         buildCards();
         updateGaugeVisibility();
+        syncSerialConfig();
         saveConfig();
       });
 
       // ── Interval ──
       document.getElementById("interval-select").addEventListener("change", (e) => {
         pollingMs = parseInt(e.target.value);
-        invoke("set_interval", { ms: pollingMs });
         if (isActive) startPolling();
+        else syncSerialConfig();
         saveConfig();
       });
 
@@ -1506,8 +1477,7 @@
       const toggleSmooth = document.getElementById("toggle-smooth");
       toggleSmooth.addEventListener("change", () => {
         smooth = toggleSmooth.checked;
-        if (isActive) startSmoothTimer();
-        else stopSmoothTimer();
+        syncSerialConfig();
         saveConfig();
       });
 
@@ -1797,6 +1767,7 @@
       // ── Config save/load ──
       let saveTimer = null;
       function saveConfig() {
+        syncSerialConfig();
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
           invoke("save_config", {
@@ -1919,7 +1890,6 @@
 
         buildCards();
         updateGaugeVisibility();
-        invoke("set_interval", { ms: pollingMs });
         fetchOptions();
         startPolling();
       }
