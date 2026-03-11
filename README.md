@@ -12,9 +12,14 @@ Its software gauges work without the device, but watching real needles twitch is
 
 ![](.github/images/gui.png)
 
-1. Install Pointify Desktop from the [latest release](https://github.com/luftaquila/pointify/releases/latest) and open it.
-    * On macOS, run the following command once after installation, as the app is not code-signed.
-    * `xattr -dr com.apple.quarantine /Applications/Pointify.app`
+1. Install Pointify Desktop and open it.
+    * **macOS / Linux (Homebrew)**
+      ```bash
+      brew tap luftaquila/pointify https://github.com/luftaquila/pointify
+      brew install --cask pointify # macOS
+      brew install pointify        # Linux
+      ```
+    * **Windows (Manual)**: Download from the [latest release](https://github.com/luftaquila/pointify/releases/latest).
 1. Connect your Pointify to the computer and set up gauges to your preference.
 
 <details>

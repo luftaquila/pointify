@@ -313,19 +313,32 @@ jobs:
             echo ""
             echo "---"
             echo ""
-            echo "## Notes"
-            echo "### macOS"
-            echo "The app is not code-signed. After installing, remove the quarantine attribute:"
+            echo "## Install"
+            echo "### macOS (Homebrew)"
             echo '```bash'
-            echo "xattr -dr com.apple.quarantine /Applications/Pointify.app"
+            echo "brew tap luftaquila/pointify https://github.com/luftaquila/pointify"
+            echo "brew install --cask pointify"
             echo '```'
+            echo "### Linux (Linuxbrew)"
+            echo '```bash'
+            echo "brew tap luftaquila/pointify https://github.com/luftaquila/pointify"
+            echo "brew install pointify"
+            echo '```'
+            echo "### Windows / Manual Install"
+            echo "Download from the assets below."
             echo ""
-            echo "### Linux"
-            echo "To use firmware update, set udev rules for the WCH bootloader USB device:"
-            echo '```bash'
-            echo "# /etc/udev/rules.d/50-wchisp.rules"
-            echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="4348", ATTRS{idProduct}=="55e0", MODE="0666"'
-            echo '```'
+            echo "> [!NOTE]"
+            echo "> On macOS, the app is not code-signed. Remove the quarantine attribute after installation:"
+            echo '> ```bash'
+            echo "> xattr -dr com.apple.quarantine /Applications/Pointify.app"
+            echo '> ```'
+            echo ""
+            echo "> [!NOTE]"
+            echo "> On Linux, to use firmware update, set udev rules for the WCH bootloader USB device:"
+            echo '> ```bash'
+            echo "> # /etc/udev/rules.d/50-wchisp.rules"
+            echo '> SUBSYSTEM=="usb", ATTRS{idVendor}=="4348", ATTRS{idProduct}=="55e0", MODE="0666"'
+            echo '> ```'
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
