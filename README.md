@@ -4,6 +4,17 @@
 
 DIY retro analog gauge meters that display system metrics in real time, including Claude usage stats!
 
+<table>
+  <tr>
+    <td>
+      <img src="https://github.com/user-attachments/assets/7c077303-4150-4fe5-a43b-09c589d438b1" height="800">
+    </td>
+    <td>
+      <video src="https://github.com/user-attachments/assets/7dd133b8-86af-4e1a-b1fe-1c4ecdfecce1" controls></video>
+    </td>
+  </tr>
+</table>
+
 ## Usage
 
 Pointify Desktop runs on macOS, Windows, and Linux, driving up to 7 gauges with customizable metrics.
