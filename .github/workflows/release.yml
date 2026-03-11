@@ -23,6 +23,7 @@ jobs:
         id: cache
         with:
           workspaces: device/firmware -> target
+          save-if: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
       - name: Build firmware
         if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
@@ -204,6 +205,7 @@ jobs:
         with:
           workspaces: gui/src-tauri -> target
           key: ${{ matrix.rust-target }}
+          save-if: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
       - uses: actions/setup-node@v4
         with:
