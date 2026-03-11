@@ -623,6 +623,13 @@
             </label>
           </div>
           <div class="setting-row">
+            <span>Overshoot</span>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-overshoot">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="setting-row">
             <span>Gauges</span>
             <select id="gauge-count-select">
               <option value="1">1</option>
@@ -995,6 +1002,7 @@
       let isActive = true;
       let pollingMs = 200;
       let smooth = false;
+      let overshoot = false;
 
       // ── Gauge state ──
       function initGaugeState(def) {
@@ -1434,6 +1442,7 @@
             gaugeCount: gaugeCount,
             voltage: voltage,
             smooth: smooth,
+            overshoot: overshoot,
             intervalMs: pollingMs,
             gauges: gaugeStates.slice(0, gaugeCount).map((s) => ({
               metricId: s.metricId,
@@ -1477,6 +1486,14 @@
       const toggleSmooth = document.getElementById("toggle-smooth");
       toggleSmooth.addEventListener("change", () => {
         smooth = toggleSmooth.checked;
+        syncSerialConfig();
+        saveConfig();
+      });
+
+      // ── Overshoot ──
+      const toggleOvershoot = document.getElementById("toggle-overshoot");
+      toggleOvershoot.addEventListener("change", () => {
+        overshoot = toggleOvershoot.checked;
         syncSerialConfig();
         saveConfig();
       });
@@ -1784,6 +1801,7 @@
               })),
               claudeRefreshSecs: parseInt(claudeRefreshSel.value),
               smooth: smooth,
+              overshoot: overshoot,
               theme: document.body.classList.contains("light") ? "light" : "dark",
             },
           });
@@ -1874,6 +1892,9 @@
 
             smooth = !!cfg.smooth;
             toggleSmooth.checked = smooth;
+
+            overshoot = !!cfg.overshoot;
+            toggleOvershoot.checked = overshoot;
 
             if (cfg.gauges) {
               cfg.gauges.forEach((g, i) => {

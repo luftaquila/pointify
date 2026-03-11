@@ -19,6 +19,7 @@ pub struct SerialConfig {
     pub gauge_count: usize,
     pub voltage: String,
     pub smooth: bool,
+    pub overshoot: bool,
     pub interval_ms: u64,
     pub gauges: Vec<GaugeEntry>,
 }
@@ -39,6 +40,7 @@ impl Default for SerialConfig {
             gauge_count: 3,
             voltage: "3".to_string(),
             smooth: false,
+            overshoot: false,
             interval_ms: 200,
             gauges: Vec::new(),
         }
@@ -293,7 +295,7 @@ fn extract_value(
     }
 }
 
-fn send_serial_raw(serial: &SharedSerial, pcts: &[f64], voltage: &str, gauge_count: usize) {
+fn send_serial_raw(serial: &SharedSerial, pcts: &[f64], voltage: &str, gauge_count: usize, overshoot: bool) {
     let mut lock = match serial.lock() {
         Ok(l) => l,
         Err(_) => return,
@@ -302,10 +304,15 @@ fn send_serial_raw(serial: &SharedSerial, pcts: &[f64], voltage: &str, gauge_cou
         Some(p) => p,
         None => return,
     };
-    let v_bit: u16 = if voltage == "5" { 1 } else { 0 };
+    // Overshoot + 3V: tell firmware it's 5V (skip 3/5 scaling), and we scale pct by 3/5 ourselves
+    let overshoot_3v = overshoot && voltage == "3";
+    let v_bit: u16 = if voltage == "5" || overshoot_3v { 1 } else { 0 };
     let bytes: Vec<u8> = (0..gauge_count)
         .flat_map(|i| {
-            let pwm = (pcts.get(i).copied().unwrap_or(0.0) * 1023.0).round() as u16 & 0x3ff;
+            let pct = pcts.get(i).copied().unwrap_or(0.0);
+            let scaled = if overshoot_3v { pct * 3.0 / 5.0 } else { pct };
+            let pwm = (scaled * 1023.0).round() as u16;
+            let pwm = pwm.min(1023);
             ((v_bit << 15) | (((i as u16) & 0x1f) << 10) | pwm).to_be_bytes()
         })
         .collect();
@@ -342,7 +349,7 @@ pub fn start_serial_loop(
                 if was_active || SEND_ZEROS.swap(false, Ordering::Relaxed) {
                     target_pct.fill(0.0);
                     current_pct.fill(0.0);
-                    send_serial_raw(&serial, &current_pct, &cfg.voltage, cfg.gauge_count);
+                    send_serial_raw(&serial, &current_pct, &cfg.voltage, cfg.gauge_count, cfg.overshoot);
                     was_active = false;
                 }
                 thread::sleep(Duration::from_millis(100));
@@ -382,7 +389,12 @@ pub fn start_serial_loop(
                             &gauge.sub_index,
                         );
                         let max = effective_max(gauge);
-                        target_pct[i] = value.map(|v| (v / max).clamp(0.0, 1.0)).unwrap_or(0.0);
+                        let upper = if cfg.overshoot {
+                            if cfg.voltage == "3" { 3.5 / 3.0 } else { f64::MAX }
+                        } else {
+                            1.0
+                        };
+                        target_pct[i] = value.map(|v| (v / max).clamp(0.0, upper)).unwrap_or(0.0);
                     } else {
                         target_pct[i] = 0.0;
                     }
@@ -400,7 +412,7 @@ pub fn start_serial_loop(
                 }
             }
 
-            send_serial_raw(&serial, &current_pct, &cfg.voltage, cfg.gauge_count);
+            send_serial_raw(&serial, &current_pct, &cfg.voltage, cfg.gauge_count, cfg.overshoot);
 
             thread::sleep(Duration::from_millis(tick_ms));
         }

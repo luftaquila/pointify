@@ -61,6 +61,8 @@ struct Config {
     claude_refresh_secs: u64,
     #[serde(default)]
     smooth: bool,
+    #[serde(default)]
+    overshoot: bool,
     theme: String,
 }
 
