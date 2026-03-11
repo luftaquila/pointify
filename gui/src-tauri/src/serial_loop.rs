@@ -169,9 +169,21 @@ fn extract_value(
 
     match metric_id {
         "cpu_usage" => Some(m.cpu.usage as f64),
-        "cpu_core_usage" => core_idx.and_then(|i| m.cpu.cores.get(i).map(|c| c.usage as f64)),
+        "cpu_core_usage" => {
+            if sub_index == "Top" {
+                m.cpu.cores.iter().map(|c| c.usage as f64).reduce(f64::max)
+            } else {
+                core_idx.and_then(|i| m.cpu.cores.get(i).map(|c| c.usage as f64))
+            }
+        }
         "cpu_temp" => m.cpu.temperature.map(|t| t as f64),
-        "cpu_core_freq" => core_idx.and_then(|i| m.cpu.cores.get(i).map(|c| c.frequency as f64)),
+        "cpu_core_freq" => {
+            if sub_index == "Top" {
+                m.cpu.cores.iter().map(|c| c.frequency as f64).reduce(f64::max)
+            } else {
+                core_idx.and_then(|i| m.cpu.cores.get(i).map(|c| c.frequency as f64))
+            }
+        }
         "cpu_power" => m.cpu.power_watts,
         "mem_usage" => Some(m.memory.usage_percent as f64),
         "swap_usage" => Some(m.swap.usage_percent as f64),

@@ -1160,7 +1160,7 @@
         if (!metricOptions || !def.sub) return null;
         switch (def.sub) {
           case "core":
-            return Array.from({ length: metricOptions.cpu_core_count }, (_, i) => `Core ${i}`);
+            return ["Top", ...Array.from({ length: metricOptions.cpu_core_count }, (_, i) => `Core ${i}`)];
           case "net":
             return ["Total", ...metricOptions.network_interfaces];
           case "disk":
@@ -1268,15 +1268,18 @@
         }
         // System metrics
         if (!m) return null;
+        const coreTop = si === "Top";
         const coreIdx = typeof si === "string" && si.startsWith("Core ") ? parseInt(si.slice(5)) : null;
         switch (id) {
           case "cpu_usage":
             return m.cpu.usage;
           case "cpu_core_usage":
+            if (coreTop) return m.cpu.cores.length ? Math.max(...m.cpu.cores.map(c => c.usage)) : null;
             return coreIdx != null ? (m.cpu.cores[coreIdx]?.usage ?? null) : null;
           case "cpu_temp":
             return m.cpu.temperature ?? null;
           case "cpu_core_freq":
+            if (coreTop) return m.cpu.cores.length ? Math.max(...m.cpu.cores.map(c => c.frequency)) : null;
             return coreIdx != null ? (m.cpu.cores[coreIdx]?.frequency ?? null) : null;
           case "cpu_power":
             return m.cpu.power_watts ?? null;
