@@ -334,3 +334,30 @@ jobs:
         with:
           files: pointify-*
           body: ${{ steps.changelog.outputs.summary }}
+
+      - name: Update Homebrew formula and cask
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+
+          SHA_MAC_ARM=$(shasum -a 256 pointify-macos-aarch64.dmg | awk '{print $1}')
+          SHA_MAC_X86=$(shasum -a 256 pointify-macos-x86_64.dmg | awk '{print $1}')
+          SHA_LINUX_ARM=$(shasum -a 256 pointify-linux-aarch64.AppImage | awk '{print $1}')
+          SHA_LINUX_X86=$(shasum -a 256 pointify-linux-x86_64.AppImage | awk '{print $1}')
+
+          # Update Cask
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Casks/pointify.rb
+          # arm sha256 is the first occurrence, intel is the second
+          sed -i "0,/sha256 \".*\"/{s/sha256 \".*\"/sha256 \"${SHA_MAC_ARM}\"/}" Casks/pointify.rb
+          sed -i "0,/sha256 \".*\"/! {0,/sha256 \".*\"/ s/sha256 \".*\"/sha256 \"${SHA_MAC_X86}\"/}" Casks/pointify.rb
+
+          # Update Formula
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/pointify.rb
+          sed -i "0,/sha256 \".*\"/{s/sha256 \".*\"/sha256 \"${SHA_LINUX_ARM}\"/}" Formula/pointify.rb
+          sed -i "0,/sha256 \".*\"/! {0,/sha256 \".*\"/ s/sha256 \".*\"/sha256 \"${SHA_LINUX_X86}\"/}" Formula/pointify.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/pointify.rb Formula/pointify.rb
+          git commit -m "brew: update to ${VERSION}"
+          git push origin HEAD:v2
