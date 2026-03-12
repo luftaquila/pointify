@@ -76,8 +76,3 @@ CH32X033F8P6 (20-pin) shares one AFIO remap value per timer. Only 7 of the 10 PC
 - Hotplug watches both normal device (VID `0x0200`, PID `0x02DB`) and bootloader VID/PIDs
 - If device is already in bootloader mode, firmware update skips serial port and bootloader entry
 - Firmware modal button modifier keys: **Alt/Option** → "Enter Bootloader", **Shift** → "Update Firmware (force)"
-
-### Release workflow CI caching
-- **Rust builds** (firmware + GUI): `Swatinem/rust-cache@v2` caches `target/` dirs, auto-invalidates on `Cargo.lock` changes
-- **npm**: `actions/setup-node` `cache: npm` option caches npm packages
-- **KiCad**: Docker image (`kicad/kicad:9.0`) cached via `docker save/load` + `actions/cache`, keyed by `docker manifest inspect` digest so new patch releases auto-invalidate the cache

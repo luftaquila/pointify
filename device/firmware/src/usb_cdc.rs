@@ -55,18 +55,34 @@ static mut EP0_TX_DATA: &[u8] = &[];
 // Default: 115200 baud, 1 stop bit, no parity, 8 data bits
 static mut LINE_CODING: [u8; 7] = [0x00, 0xC2, 0x01, 0x00, 0x00, 0x00, 0x08];
 
+// Parse decimal string to u8 at compile time
+const fn parse_u8(s: &[u8]) -> u8 {
+    let mut r = 0u8;
+    let mut i = 0;
+    while i < s.len() {
+        r = r * 10 + (s[i] - b'0');
+        i += 1;
+    }
+    r
+}
+
 // Device Descriptor (VID=0x0200, PID=0x02DB)
-static DEV_DESC: [u8; 18] = [
-    0x12, 0x01, // bLength, bDescriptorType
-    0x10, 0x01, // bcdUSB 1.10
-    0x02, 0x02, 0x00, // bDeviceClass=CDC, SubClass, Protocol
-    0x40, // bMaxPacketSize0 = 64
-    0x00, 0x02, // idVendor (0x0200 LE)
-    0xDB, 0x02, // idProduct (0x02DB LE)
-    0x00, 0x01, // bcdDevice v1.0
-    0x01, 0x02, 0x03, // iManufacturer, iProduct, iSerialNumber
-    0x01, // bNumConfigurations
-];
+// bcdDevice is derived from Cargo.toml version (major.minor)
+static DEV_DESC: [u8; 18] = {
+    const MAJOR: u8 = parse_u8(env!("CARGO_PKG_VERSION_MAJOR").as_bytes());
+    const MINOR: u8 = parse_u8(env!("CARGO_PKG_VERSION_MINOR").as_bytes());
+    [
+        0x12, 0x01, // bLength, bDescriptorType
+        0x10, 0x01, // bcdUSB 1.10
+        0x02, 0x02, 0x00, // bDeviceClass=CDC, SubClass, Protocol
+        0x40, // bMaxPacketSize0 = 64
+        0x00, 0x02, // idVendor (0x0200 LE)
+        0xDB, 0x02, // idProduct (0x02DB LE)
+        MINOR, MAJOR, // bcdDevice (BCD, LE)
+        0x01, 0x02, 0x03, // iManufacturer, iProduct, iSerialNumber
+        0x01, // bNumConfigurations
+    ]
+};
 
 // Configuration Descriptor (67 bytes total)
 static CFG_DESC: [u8; 67] = [

@@ -33,19 +33,10 @@ jobs:
       - name: Prepare artifact
         if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
         run: |
-          VERSION=$(python3 -c "
-          import re
-          with open('device/firmware/src/usb_cdc.rs') as f:
-              text = f.read()
-          m = re.search(r'(0x[0-9A-Fa-f]{2}),\s*(0x[0-9A-Fa-f]{2}),\s*//\s*bcdDevice', text)
-          lo = int(m.group(1), 16)
-          hi = int(m.group(2), 16)
-          bcd = (hi << 8) | lo
-          major = ((bcd >> 12) & 0xF) * 10 + ((bcd >> 8) & 0xF)
-          minor = ((bcd >> 4) & 0xF) * 10 + (bcd & 0xF)
-          print(f'v{major}.{minor}')
-          ")
-          cp device/firmware/target/riscv32imc-unknown-none-elf/release/pointify-firmware "pointify-firmware-${VERSION}.elf"
+          VERSION=$(sed -n 's/^version = "\([^"]*\)"/\1/p' device/firmware/Cargo.toml)
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          cp device/firmware/target/riscv32imc-unknown-none-elf/release/pointify-firmware "pointify-firmware-v${MAJOR}.${MINOR}.elf"
 
       - name: Upload artifacts
         if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
