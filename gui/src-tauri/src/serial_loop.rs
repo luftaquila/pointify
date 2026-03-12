@@ -303,6 +303,7 @@ fn extract_value(
             .iter()
             .find(|g| g.name == sub_index)
             .and_then(|g| g.power_watts),
+        "process_count" => Some(m.process_count as f64),
         _ => None,
     }
 }

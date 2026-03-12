@@ -121,6 +121,7 @@ impl SystemMonitor {
         SwapMetrics,
         NetworkMetrics,
         DiskMetrics,
+        u32,
     ) {
         let elapsed = self.last_update.elapsed().as_secs_f64();
         self.last_update = Instant::now();
@@ -135,8 +136,9 @@ impl SystemMonitor {
         let swap = self.collect_swap();
         let network = self.collect_network(elapsed);
         let disk = self.collect_disk(elapsed);
+        let process_count = self.sys.processes().len() as u32;
 
-        (cpu, memory, swap, network, disk)
+        (cpu, memory, swap, network, disk, process_count)
     }
 
     fn collect_cpu(&mut self) -> CpuMetrics {

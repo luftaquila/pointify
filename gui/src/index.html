@@ -866,6 +866,15 @@
         { sep: true },
         { id: "mem_usage", label: "Memory Usage", unit: "%", sub: false },
         { id: "swap_usage", label: "Swap Usage", unit: "%", sub: false },
+        {
+          id: "process_count",
+          label: "Process Count",
+          unit: "",
+          sub: false,
+          maxUnits: [""],
+          defaultMax: 500,
+          defaultMaxUnit: "",
+        },
         { sep: true },
         {
           id: "net_rx",
@@ -1287,6 +1296,8 @@
             return m.memory.usage_percent;
           case "swap_usage":
             return m.swap.usage_percent;
+          case "process_count":
+            return m.process_count;
           case "net_rx": {
             if (si === "Total") return m.network.interfaces.reduce((s, i) => s + i.rx_bytes_per_sec, 0);
             const f = m.network.interfaces.find((i) => i.name === si);

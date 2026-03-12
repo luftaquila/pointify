@@ -78,4 +78,5 @@ pub struct SystemMetrics {
     pub network: NetworkMetrics,
     pub disk: DiskMetrics,
     pub gpus: Vec<GpuMetrics>,
+    pub process_count: u32,
 }
