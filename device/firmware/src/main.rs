@@ -110,13 +110,13 @@ async fn main(_spawner: Spawner) -> ! {
                 let scale_3v = is_5v_supply && !is_5v_gauge;
 
                 match index {
-                    0 => pwm_tim2.set_duty(Channel::Ch1, duty_u32(value, max_duty_tim2, scale_3v)),
-                    1 => pwm_tim2.set_duty(Channel::Ch2, duty_u32(value, max_duty_tim2, scale_3v)),
-                    2 => pwm_tim2.set_duty(Channel::Ch3, duty_u32(value, max_duty_tim2, scale_3v)),
+                    0 => unsafe { ((TIM1 + 0x34) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR1 (PA7)
+                    1 => unsafe { ((TIM1 + 0x3C) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR3 (PB1)
+                    2 => pwm_tim3.set_duty(Channel::Ch1, duty_u32(value, max_duty_tim3, scale_3v)),
                     3 => pwm_tim2.set_duty(Channel::Ch4, duty_u32(value, max_duty_tim2, scale_3v)),
-                    4 => pwm_tim3.set_duty(Channel::Ch1, duty_u32(value, max_duty_tim3, scale_3v)),
-                    5 => unsafe { ((TIM1 + 0x3C) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR3 (PB1)
-                    6 => unsafe { ((TIM1 + 0x34) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR1 (PA7)
+                    4 => pwm_tim2.set_duty(Channel::Ch3, duty_u32(value, max_duty_tim2, scale_3v)),
+                    5 => pwm_tim2.set_duty(Channel::Ch2, duty_u32(value, max_duty_tim2, scale_3v)),
+                    6 => pwm_tim2.set_duty(Channel::Ch1, duty_u32(value, max_duty_tim2, scale_3v)),
                     31 if value == 0x3FF => {
                         // Zero all PWMs as visual confirmation before bootloader
                         pwm_tim2.set_duty(Channel::Ch1, 0);
