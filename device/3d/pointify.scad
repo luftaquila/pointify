@@ -69,8 +69,8 @@ divider_cut_depth = tab_depth + tab_thick_lower;
 // [Anti-slip Sticker Recess]
 sticker_dia = 12.0;
 sticker_depth = 1.0;
-sticker_inset_x = 12;
-sticker_inset_y = 12;
+sticker_inset_x = 9;
+sticker_inset_y = 9;
 
 // ==========================================
 // 2. Main Assembly
