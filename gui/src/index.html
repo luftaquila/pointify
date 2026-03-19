@@ -1853,6 +1853,17 @@
         claudeCodeStats = e.payload;
       });
 
+      // ── Recover from blank screen (macOS WKWebView) ──
+      function forceRepaint() {
+        document.body.style.display = "none";
+        void document.body.offsetHeight;
+        document.body.style.display = "";
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) forceRepaint();
+      });
+      window.addEventListener("focus", forceRepaint);
+
       // ── GitHub ──
       const githubLink = document.getElementById("github-link");
       githubLink.addEventListener("click", (e) => {

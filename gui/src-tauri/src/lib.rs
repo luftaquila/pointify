@@ -15,6 +15,7 @@ use tauri::{
     image::Image,
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    webview::WebviewWindow,
     Emitter, Manager, State, WindowEvent,
 };
 
@@ -27,6 +28,20 @@ use monitor::{SharedInterval, SharedMetrics};
 use serial_loop::{SerialConfig, SharedSerialConfig};
 
 type SharedSerial = Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>;
+
+/// Show window and nudge its size to force macOS WKWebView to re-render.
+/// Without this, the WebView can blank out after a hide/show cycle.
+fn show_window(window: &WebviewWindow) {
+    let _ = window.show();
+    let _ = window.set_focus();
+    if let Ok(size) = window.inner_size() {
+        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: size.width + 1,
+            height: size.height,
+        }));
+        let _ = window.set_size(tauri::Size::Physical(size));
+    }
+}
 
 struct ClaudeTtl(AtomicU64);
 
@@ -439,8 +454,7 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                            show_window(&window);
                         }
                     }
                     "autostart" => {
@@ -470,8 +484,7 @@ pub fn run() {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
                             } else {
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                                show_window(&window);
                             }
                         }
                     }
