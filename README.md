@@ -17,7 +17,7 @@ DIY retro analog gauge meters that display system metrics in real time, includin
 
 ## Usage
 
-Pointify Desktop runs on macOS, Windows, and Linux, driving up to 7 gauges with customizable metrics.
+Pointify Desktop runs on macOS, Windows, and Linux, driving up to 8 gauges with customizable metrics.
 
 Its software gauges work without the device, but watching real needles twitch is way better. So go build one!
 
@@ -152,7 +152,7 @@ If your board is fresh and the MCU has never been flashed, it will always boot i
 1. Install the gauges into the housing.
 1. Connect all negative terminals (near the 0V scale) of the gauge to the GND header on the PCB.
     * Daisy-chain them, since there's only one GND pad (marked ⏚).
-1. Connect each positive terminal (near the 3V scale) to PWM port #1~7 on the PCB.
+1. Connect each positive terminal (near the 3V scale) to PWM port #1~8 on the PCB.
     * The pad right next to the GND is PWM1.
     * Solder directly to the washer that comes with the gauge, or crimp a ring terminal onto the wire. Crimping is easier to work with but you'll need a crimp tool and ring terminals.
 1. Mount the PCB upside down onto the housing. The USB port faces downward.

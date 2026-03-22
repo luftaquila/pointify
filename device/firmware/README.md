@@ -7,7 +7,7 @@ USB CDC ACM is implemented with raw PAC registers (`pac::usb::Usbd`) since ch32-
 ## Features
 
 - USB CDC ACM device (VID=0x0200, PID=0x02DB)
-- 7-channel PWM output (TIM1/TIM2/TIM3)
+- 8-channel PWM output (TIM1/TIM2/TIM3)
 - Auto-detect 3.3V/5V supply via ADC internal reference
 - Voltage-aware PWM scaling (3V gauges on 5V supply are scaled down)
 

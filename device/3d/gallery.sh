@@ -42,7 +42,7 @@ sed 's/color("#ffaa00")//' "$SCAD_SRC" > "$SCAD_TMP"
 mkdir -p "$OUT_DIR"
 
 # Render configurations
-CONFIGS="1:2 1:3 1:4 1:5 1:6 1:7 2:2 2:3"
+CONFIGS="1:2 1:3 1:4 1:5 1:6 1:7 1:8 2:2 2:3 2:4"
 
 for cfg in $CONFIGS; do
   rows="${cfg%%:*}"
@@ -71,22 +71,22 @@ done
 
 # Get max height per row for vertical centering
 ROW1_H=0
-for name in 1x2 1x3 1x4 1x5; do
+for name in 1x2 1x3 1x4 1x5 1x6; do
   h=$(magick identify -format "%h" "$OUT_DIR/$name.png")
   [ "$h" -gt "$ROW1_H" ] && ROW1_H=$h
 done
 
 ROW2_H=0
-for name in 1x6 1x7 2x2 2x3; do
+for name in 1x7 1x8 2x2 2x3 2x4; do
   h=$(magick identify -format "%h" "$OUT_DIR/$name.png")
   [ "$h" -gt "$ROW2_H" ] && ROW2_H=$h
 done
 
-# Column layout: col1=(1x2,1x6) col2=(1x3,1x7) col3=(1x4,2x2) col4=(1x5,2x3)
-COL1=("1x2" "1x6") COL2=("1x3" "1x7") COL3=("1x4" "2x2") COL4=("1x5" "2x3")
+# Column layout: col1=(1x2,1x7) col2=(1x3,1x8) col3=(1x4,2x2) col4=(1x5,2x3) col5=(1x6,2x4)
+COL1=("1x2" "1x7") COL2=("1x3" "1x8") COL3=("1x4" "2x2") COL4=("1x5" "2x3") COL5=("1x6" "2x4")
 
 # Get max width per column and max height per row
-for i in 1 2 3 4; do
+for i in 1 2 3 4 5; do
   eval "col=(\"\${COL${i}[@]}\")"
   max_w=0
   for name in "${col[@]}"; do
@@ -97,16 +97,16 @@ for i in 1 2 3 4; do
 done
 
 # Pad each image to column max width and row max height (center gravity)
-for name in 1x2 1x3 1x4 1x5; do
+for name in 1x2 1x3 1x4 1x5 1x6; do
   magick "$OUT_DIR/$name.png" -gravity center -background "#1e1e2e" \
     -extent "%[w]x${ROW1_H}" "$OUT_DIR/$name.png"
 done
-for name in 1x6 1x7 2x2 2x3; do
+for name in 1x7 1x8 2x2 2x3 2x4; do
   magick "$OUT_DIR/$name.png" -gravity center -background "#1e1e2e" \
     -extent "%[w]x${ROW2_H}" "$OUT_DIR/$name.png"
 done
 
-for col_var in COL1 COL2 COL3 COL4; do
+for col_var in COL1 COL2 COL3 COL4 COL5; do
   eval "col=(\"\${${col_var}[@]}\")"
   eval "max_w=\${${col_var}_W}"
   for name in "${col[@]}"; do
@@ -115,11 +115,11 @@ for col_var in COL1 COL2 COL3 COL4; do
   done
 done
 
-# Compose 4x2 gallery
+# Compose 5x2 gallery
 magick montage \
-  "$OUT_DIR/1x2.png" "$OUT_DIR/1x3.png" "$OUT_DIR/1x4.png" "$OUT_DIR/1x5.png" \
-  "$OUT_DIR/1x6.png" "$OUT_DIR/1x7.png" "$OUT_DIR/2x2.png" "$OUT_DIR/2x3.png" \
-  -tile 4x2 -geometry +0+0 -background "#1e1e2e" \
+  "$OUT_DIR/1x2.png" "$OUT_DIR/1x3.png" "$OUT_DIR/1x4.png" "$OUT_DIR/1x5.png" "$OUT_DIR/1x6.png" \
+  "$OUT_DIR/1x7.png" "$OUT_DIR/1x8.png" "$OUT_DIR/2x2.png" "$OUT_DIR/2x3.png" "$OUT_DIR/2x4.png" \
+  -tile 5x2 -geometry +0+0 -background "#1e1e2e" \
   "$GALLERY"
 
 # Cleanup
