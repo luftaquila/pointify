@@ -40,21 +40,23 @@ async fn main(_spawner: Spawner) -> ! {
     pwm_tim2.enable(Channel::Ch3);
     pwm_tim2.enable(Channel::Ch4);
 
-    // Release PC19/DCK debug clock pin for GPIO/timer use
-    // AFIO_PCFR1 bits[26:24] = sw_cfg = 0b100 (disable debug, release pins)
+    // Release PC18/DIO and PC19/DCK debug pins for GPIO/timer use
+    // AFIO_PCFR1 bits[26:24] = sw_cfg = 0b100 (disable debug, release both pins)
     unsafe {
         let afio_pcfr1 = 0x4001_0004 as *mut u32;
         let val = afio_pcfr1.read_volatile();
         afio_pcfr1.write_volatile((val & !(0x07 << 24)) | (0x04 << 24));
     }
 
-    // TIM3 remap=2: PC19
+    // TIM3 remap=2: PC19(CH1), PC18(CH2)
     let ch1_t3 = PwmPin::new_ch1::<2>(p.PC19);
+    let ch2_t3 = PwmPin::new_ch2::<2>(p.PC18);
     let mut pwm_tim3 = SimplePwm::new(
-        p.TIM3, Some(ch1_t3), None, None, None,
+        p.TIM3, Some(ch1_t3), Some(ch2_t3), None, None,
         Hertz::khz(1), CountingMode::default(),
     );
     pwm_tim3.enable(Channel::Ch1);
+    pwm_tim3.enable(Channel::Ch2);
 
     // TIM1 remap=1: PA7(CH1N), PB1(CH3N)
     let ch1n = ComplementaryPwmPin::new_ch1::<1>(p.PA7);
@@ -113,6 +115,7 @@ async fn main(_spawner: Spawner) -> ! {
                     0 => unsafe { ((TIM1 + 0x34) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR1 (PA7)
                     1 => unsafe { ((TIM1 + 0x3C) as *mut u32).write_volatile(duty_u16(value, max_duty_tim1, scale_3v) as u32) }, // CCR3 (PB1)
                     2 => pwm_tim3.set_duty(Channel::Ch1, duty_u32(value, max_duty_tim3, scale_3v)),
+                    7 => pwm_tim3.set_duty(Channel::Ch2, duty_u32(value, max_duty_tim3, scale_3v)),
                     3 => pwm_tim2.set_duty(Channel::Ch4, duty_u32(value, max_duty_tim2, scale_3v)),
                     4 => pwm_tim2.set_duty(Channel::Ch3, duty_u32(value, max_duty_tim2, scale_3v)),
                     5 => pwm_tim2.set_duty(Channel::Ch2, duty_u32(value, max_duty_tim2, scale_3v)),
@@ -124,6 +127,7 @@ async fn main(_spawner: Spawner) -> ! {
                         pwm_tim2.set_duty(Channel::Ch3, 0);
                         pwm_tim2.set_duty(Channel::Ch4, 0);
                         pwm_tim3.set_duty(Channel::Ch1, 0);
+                        pwm_tim3.set_duty(Channel::Ch2, 0);
                         unsafe { ((TIM1 + 0x34) as *mut u32).write_volatile(0) }; // CCR1
                         unsafe { ((TIM1 + 0x3C) as *mut u32).write_volatile(0) }; // CCR3
                         usb_cdc::enter_bootloader();

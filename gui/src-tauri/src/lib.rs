@@ -261,7 +261,7 @@ fn reset_gauges(app: &tauri::AppHandle) {
     };
     if let Some(port) = lock.as_mut() {
         // Send PWM=0 for gauge indices 0-6
-        let bytes: Vec<u8> = (0u16..7).flat_map(|i| (i << 10).to_be_bytes()).collect();
+        let bytes: Vec<u8> = (0u16..8).flat_map(|i| (i << 10).to_be_bytes()).collect();
         let _ = port.write_all(&bytes);
         let _ = port.flush();
     }

@@ -639,6 +639,7 @@
               <option value="5">5</option>
               <option value="6">6</option>
               <option value="7">7</option>
+              <option value="8">8</option>
             </select>
           </div>
           <div class="setting-row">
@@ -1024,7 +1025,7 @@
       }
       const gaugeStates = [];
       const METRIC_ITEMS = METRICS.filter((m) => !m.sep);
-      for (let i = 0; i < 7; i++) gaugeStates.push(initGaugeState(METRIC_ITEMS[i]));
+      for (let i = 0; i < 8; i++) gaugeStates.push(initGaugeState(METRIC_ITEMS[i]));
 
       // ── Unit multipliers ──
       function unitMultiplier(u) {
@@ -1111,7 +1112,7 @@
 
       function buildCards() {
         grid.innerHTML = "";
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
           const card = document.createElement("div");
           card.className = "gauge-card" + (i >= gaugeCount ? " hidden" : "");
           card.id = `gauge-${i}`;
@@ -1234,7 +1235,7 @@
       }
 
       function updateAllControls() {
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
           updateSubDropdown(i);
           updateMaxRow(i);
         }
@@ -1393,7 +1394,7 @@
       // ── Gauge count ──
       const gaugeCountSel = document.getElementById("gauge-count-select");
       function updateGaugeVisibility() {
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
           const c = document.getElementById(`gauge-${i}`);
           if (c) c.classList.toggle("hidden", i >= gaugeCount);
         }

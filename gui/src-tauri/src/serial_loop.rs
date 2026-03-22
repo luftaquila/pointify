@@ -341,8 +341,8 @@ pub fn start_serial_loop(
     claude_code_stats: SharedClaudeCodeStats,
 ) {
     thread::spawn(move || {
-        let mut current_pct = [0.0f64; 7];
-        let mut target_pct = [0.0f64; 7];
+        let mut current_pct = [0.0f64; 8];
+        let mut target_pct = [0.0f64; 8];
         let alpha = 0.51;
 
         let mut last_target_update = Instant::now();

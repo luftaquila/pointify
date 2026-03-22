@@ -50,9 +50,9 @@ cd device/firmware && cargo run --release     # build + flash via wchisp
 - Release workflow parses the same bytes to name the artifact `pointify-firmware-vX.Y.elf`
 
 ### PWM timer remap constraints
-CH32X033F8P6 (20-pin) shares one AFIO remap value per timer. Only 7 of the 10 PCB channels actually work at the same time:
+CH32X033F8P6 (20-pin) shares one AFIO remap value per timer. 8 PWM channels work simultaneously (maximum for this package):
 - TIM2 remap=0: PA0(CH1), PA1(CH2), PA2(CH3), PA3(CH4) - 4 channels
-- TIM3 remap=2: PC19(CH1) - 1 channel
+- TIM3 remap=2: PC19(CH1), PC18(CH2) - 2 channels (PC18/DIO released via sw_cfg=0b100)
 - TIM1 remap=1: PA7(CH1N), PB1(CH3N) - 2 channels (ComplementaryPwm)
 - Won't work: PA4(TIM3_CH2 needs remap=3), PB7(TIM1_CH2N needs remap=0/2), PC3(TIM1_CH4 needs remap=3)
 
