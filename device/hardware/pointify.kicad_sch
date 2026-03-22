@@ -449,7 +449,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Connector:Conn_01x08_Pin"
+		(symbol "Connector:Conn_01x09_Pin"
 			(pin_names
 				(offset 1.016)
 				(hide yes)
@@ -458,14 +458,14 @@
 			(in_bom yes)
 			(on_board yes)
 			(property "Reference" "J"
-				(at 0 10.16 0)
+				(at 0 12.7 0)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Value" "Conn_01x08_Pin"
+			(property "Value" "Conn_01x09_Pin"
 				(at 0 -12.7 0)
 				(effects
 					(font
@@ -491,7 +491,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "Generic connector, single row, 01x08, script generated"
+			(property "Description" "Generic connector, single row, 01x09, script generated"
 				(at 0 0 0)
 				(effects
 					(font
@@ -526,7 +526,18 @@
 					(hide yes)
 				)
 			)
-			(symbol "Conn_01x08_Pin_1_1"
+			(symbol "Conn_01x09_Pin_1_1"
+				(rectangle
+					(start 0.8636 10.287)
+					(end 0 10.033)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
 				(rectangle
 					(start 0.8636 7.747)
 					(end 0 7.493)
@@ -613,6 +624,18 @@
 					)
 					(fill
 						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 10.16) (xy 0.8636 10.16)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
 					)
 				)
 				(polyline
@@ -712,7 +735,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 7.62 180)
+					(at 5.08 10.16 180)
 					(length 3.81)
 					(name "Pin_1"
 						(effects
@@ -730,7 +753,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 5.08 180)
+					(at 5.08 7.62 180)
 					(length 3.81)
 					(name "Pin_2"
 						(effects
@@ -748,7 +771,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 2.54 180)
+					(at 5.08 5.08 180)
 					(length 3.81)
 					(name "Pin_3"
 						(effects
@@ -766,7 +789,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 0 180)
+					(at 5.08 2.54 180)
 					(length 3.81)
 					(name "Pin_4"
 						(effects
@@ -784,7 +807,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 -2.54 180)
+					(at 5.08 0 180)
 					(length 3.81)
 					(name "Pin_5"
 						(effects
@@ -802,7 +825,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 -5.08 180)
+					(at 5.08 -2.54 180)
 					(length 3.81)
 					(name "Pin_6"
 						(effects
@@ -820,7 +843,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 -7.62 180)
+					(at 5.08 -5.08 180)
 					(length 3.81)
 					(name "Pin_7"
 						(effects
@@ -838,7 +861,7 @@
 					)
 				)
 				(pin passive line
-					(at 5.08 -10.16 180)
+					(at 5.08 -7.62 180)
 					(length 3.81)
 					(name "Pin_8"
 						(effects
@@ -848,6 +871,24 @@
 						)
 					)
 					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 -10.16 180)
+					(length 3.81)
+					(name "Pin_9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2500,10 +2541,6 @@
 		(at 157.48 86.36)
 		(uuid "f75798b0-edc2-4752-887e-e4d78202363d")
 	)
-	(no_connect
-		(at 157.48 96.52)
-		(uuid "fd5141a3-28bf-45ce-b152-5493cacbfe68")
-	)
 	(wire
 		(pts
 			(xy 143.51 83.82) (xy 157.48 83.82)
@@ -2666,6 +2703,16 @@
 	)
 	(wire
 		(pts
+			(xy 143.51 96.52) (xy 157.48 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "83b29a08-9c4a-4006-a928-cb495e84b7a7")
+	)
+	(wire
+		(pts
 			(xy 185.42 88.9) (xy 198.12 88.9)
 		)
 		(stroke
@@ -2766,6 +2813,16 @@
 	)
 	(wire
 		(pts
+			(xy 172.72 142.24) (xy 186.69 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ebf17074-2ac0-44c1-8443-ec536efaadc9")
+	)
+	(wire
+		(pts
 			(xy 185.42 86.36) (xy 198.12 86.36)
 		)
 		(stroke
@@ -2793,6 +2850,16 @@
 			(justify left bottom)
 		)
 		(uuid "03de8e9e-ef7b-44ee-a8f2-fc82508ef131")
+	)
+	(label "PWM8_T3C2"
+		(at 143.51 96.52 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "10b61dbb-9d92-44f3-9739-2644508eb9fb")
 	)
 	(label "PWM3_T3C1"
 		(at 198.12 83.82 180)
@@ -2933,6 +3000,16 @@
 			(justify right bottom)
 		)
 		(uuid "e5a03c1c-99ac-49d1-9b76-cb29ef499548")
+	)
+	(label "PWM8_T3C2"
+		(at 172.72 142.24 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e803cb16-365b-4513-a7dc-8bf7533a9567")
 	)
 	(label "PWM6_T2C2"
 		(at 172.72 137.16 0)
@@ -3101,7 +3178,7 @@
 			(uuid "fdcb655c-d441-4624-99ce-531ff9f964f3")
 		)
 		(instances
-			(project ""
+			(project "pointify"
 				(path "/4afa4f1a-2340-42a5-ad22-9ab0d7448eb2"
 					(reference "#PWR05")
 					(unit 1)
@@ -3167,7 +3244,7 @@
 			(uuid "fe6a9708-44f6-4c99-b4f5-9aeb40b46a91")
 		)
 		(instances
-			(project ""
+			(project "pointify"
 				(path "/4afa4f1a-2340-42a5-ad22-9ab0d7448eb2"
 					(reference "#PWR01")
 					(unit 1)
@@ -3501,7 +3578,7 @@
 			(uuid "ae04d67d-db1f-4120-969d-0ec5ff2302c8")
 		)
 		(instances
-			(project ""
+			(project "pointify"
 				(path "/4afa4f1a-2340-42a5-ad22-9ab0d7448eb2"
 					(reference "JP1")
 					(unit 1)
@@ -3797,7 +3874,7 @@
 			(uuid "b5acab5f-81a6-4671-b93d-4bb060b3eb43")
 		)
 		(instances
-			(project ""
+			(project "pointify"
 				(path "/4afa4f1a-2340-42a5-ad22-9ab0d7448eb2"
 					(reference "R1")
 					(unit 1)
@@ -3940,25 +4017,16 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:Conn_01x08_Pin")
-		(at 191.77 129.54 0)
+		(lib_id "Connector:Conn_01x09_Pin")
+		(at 191.77 132.08 0)
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom no)
+		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "8ac31c14-89eb-412f-8ca6-5f63b7cb0aaf")
 		(property "Reference" "J2"
-			(at 193.294 129.54 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "PWM"
 			(at 193.294 132.08 0)
 			(effects
 				(font
@@ -3967,8 +4035,17 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical"
-			(at 191.77 129.54 0)
+		(property "Value" "PWM"
+			(at 193.294 134.62 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x09_P2.54mm_Vertical"
+			(at 191.77 132.08 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3977,7 +4054,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 191.77 129.54 0)
+			(at 191.77 132.08 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3985,8 +4062,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Generic connector, single row, 01x08, script generated"
-			(at 191.77 129.54 0)
+		(property "Description" "Generic connector, single row, 01x09, script generated"
+			(at 191.77 132.08 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4017,6 +4094,9 @@
 		)
 		(pin "8"
 			(uuid "2ddc600d-00d6-4f9d-9bce-9e2e77f40c9f")
+		)
+		(pin "9"
+			(uuid "9748beda-e6af-4925-8340-8176d3249e3d")
 		)
 		(instances
 			(project "pointify"
@@ -4141,7 +4221,7 @@
 			(uuid "8452dccb-b9cf-4f42-9a82-7d2372d2a4cf")
 		)
 		(instances
-			(project ""
+			(project "pointify"
 				(path "/4afa4f1a-2340-42a5-ad22-9ab0d7448eb2"
 					(reference "J1")
 					(unit 1)
@@ -4308,6 +4388,7 @@
 					(size 1.27 1.27)
 				)
 				(justify right)
+				(hide yes)
 			)
 		)
 		(property "Footprint" ""
@@ -4483,7 +4564,7 @@
 			(uuid "7103318f-4525-499c-83b3-97b0b77aad92")
 		)
 		(instances
-			(project ""
+			(project "pointify"
 				(path "/4afa4f1a-2340-42a5-ad22-9ab0d7448eb2"
 					(reference "H1")
 					(unit 1)
@@ -4857,7 +4938,7 @@
 			(uuid "72edb766-da22-4b36-8c31-a5e40ae44bd2")
 		)
 		(instances
-			(project ""
+			(project "pointify"
 				(path "/4afa4f1a-2340-42a5-ad22-9ab0d7448eb2"
 					(reference "R3")
 					(unit 1)
