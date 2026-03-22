@@ -5,7 +5,7 @@ $fn = 100;
 
 // [Grid Configuration]
 num_cols = 3; // Columns (Width)
-num_rows = 2; // Rows (Height)
+num_rows = 1; // Rows (Height)
 
 // [Dimensions]
 hole_sz = 46; // Unit hole size
@@ -92,6 +92,7 @@ union() {
       rotated_tabs();
       rear_mounting_tabs_fixed_height();
       pcb_bosses_solid();
+      pcb_boss_supports();
     }
     // Subtract PCB Screw Holes
     pcb_boss_holes();
@@ -134,7 +135,7 @@ module lip_insert_counterbored() {
   // USB Position Calculation
   div_center_x = gap + hole_w + (gap / 2);
   pcb_bottom_z = floor_thickness + pcb_boss_height + patch_nut_height;
-  usb_center_z = pcb_bottom_z - 1.7; // USB connector center (fixed)
+  usb_center_z = pcb_bottom_z - 1.0; // USB connector center (fixed)
 
   difference() {
     // Main Lip Body
@@ -174,6 +175,26 @@ module pcb_bosses_solid() {
   translate([0, 0, floor_thickness]) {
     translate([x_pos_left, y_pos, 0]) cylinder(d=pcb_boss_dia, h=pcb_boss_height);
     translate([x_pos_right, y_pos, 0]) cylinder(d=pcb_boss_dia, h=pcb_boss_height);
+  }
+}
+
+// Module: PCB Boss Print Supports (45° ramp on -Y overhang side for face-down printing)
+module pcb_boss_supports() {
+  y_cut = calc_back_cut_y();
+  y_pos = y_cut - cover_thickness - pcb_dist_from_cover;
+  div_center_x = gap + hole_w + (gap / 2);
+  x_pos_left = div_center_x - (pcb_hole_dist / 2);
+  x_pos_right = div_center_x + (pcb_hole_dist / 2);
+
+  for (x = [x_pos_left, x_pos_right]) {
+    hull() {
+      translate([x, y_pos, floor_thickness + pcb_boss_height - 0.01])
+        cylinder(d=pcb_boss_dia, h=0.01);
+      translate([x, y_pos, floor_thickness])
+        cylinder(d=pcb_boss_dia, h=0.01);
+      translate([x, y_pos - pcb_boss_height, floor_thickness])
+        cylinder(d=pcb_boss_dia, h=0.01);
+    }
   }
 }
 
