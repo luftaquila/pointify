@@ -135,7 +135,7 @@ module lip_insert_counterbored() {
   // USB Position Calculation
   div_center_x = gap + hole_w + (gap / 2);
   pcb_bottom_z = floor_thickness + pcb_boss_height + patch_nut_height;
-  usb_center_z = pcb_bottom_z - 1.0; // USB connector center (fixed)
+  usb_center_z = pcb_bottom_z - 0.5; // USB connector center (fixed)
 
   difference() {
     // Main Lip Body
