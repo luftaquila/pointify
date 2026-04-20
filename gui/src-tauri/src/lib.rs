@@ -104,6 +104,10 @@ struct Config {
     voltage: String,
     interval_ms: u64,
     gauge_count: usize,
+    #[serde(default = "default_rows")]
+    rows: usize,
+    #[serde(default = "default_cols")]
+    cols: usize,
     gauges: Vec<GaugeConfig>,
     #[serde(default = "default_claude_refresh")]
     claude_refresh_secs: u64,
@@ -119,6 +123,12 @@ fn default_voltage() -> String {
 }
 fn default_claude_refresh() -> u64 {
     120
+}
+fn default_rows() -> usize {
+    1
+}
+fn default_cols() -> usize {
+    3
 }
 
 #[tauri::command]

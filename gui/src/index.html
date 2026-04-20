@@ -398,7 +398,7 @@
     /* ── Gauge grid ── */
     .grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 350px));
+      grid-template-columns: repeat(3, minmax(0, 260px));
       gap: 14px;
       justify-content: center;
     }
@@ -630,8 +630,17 @@
             </label>
           </div>
           <div class="setting-row">
-            <span>Gauges</span>
-            <select id="gauge-count-select">
+            <span>Rows</span>
+            <select id="layout-rows-select">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <span>Cols</span>
+            <select id="layout-cols-select">
               <option value="1">1</option>
               <option value="2">2</option>
               <option value="3" selected>3</option>
@@ -1008,7 +1017,9 @@
       let claudeUsage = null;
       let claudeCodeStats = null;
       let voltage = "3";
-      let gaugeCount = 3;
+      let rows = 1;
+      let cols = 3;
+      let gaugeCount = rows * cols;
       let isActive = true;
       let pollingMs = 200;
       let smooth = false;
@@ -1392,19 +1403,39 @@
       }
 
       // ── Gauge count ──
-      const gaugeCountSel = document.getElementById("gauge-count-select");
+      const layoutRowsSel = document.getElementById("layout-rows-select");
+      const layoutColsSel = document.getElementById("layout-cols-select");
       function updateGaugeVisibility() {
         for (let i = 0; i < 8; i++) {
           const c = document.getElementById(`gauge-${i}`);
           if (c) c.classList.toggle("hidden", i >= gaugeCount);
         }
       }
-      gaugeCountSel.addEventListener("change", () => {
-        gaugeCount = parseInt(gaugeCountSel.value);
+      function applyLayout() {
+        gaugeCount = rows * cols;
+        grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 260px))`;
         updateGaugeVisibility();
+      }
+      function onLayoutChange(source) {
+        let r = parseInt(layoutRowsSel.value);
+        let c = parseInt(layoutColsSel.value);
+        if (r * c > 8) {
+          if (source === "rows") {
+            c = Math.max(1, Math.floor(8 / r));
+            layoutColsSel.value = c;
+          } else {
+            r = Math.max(1, Math.floor(8 / c));
+            layoutRowsSel.value = r;
+          }
+        }
+        rows = r;
+        cols = c;
+        applyLayout();
         syncSerialConfig();
         saveConfig();
-      });
+      }
+      layoutRowsSel.addEventListener("change", () => onLayoutChange("rows"));
+      layoutColsSel.addEventListener("change", () => onLayoutChange("cols"));
 
       // ── Polling ──
       function needsClaudeApi() {
@@ -1808,6 +1839,8 @@
               voltage: voltage,
               intervalMs: pollingMs,
               gaugeCount: gaugeCount,
+              rows: rows,
+              cols: cols,
               gauges: gaugeStates.map((s) => ({
                 metricId: s.metricId,
                 subIndex: s.subIndex,
@@ -1915,8 +1948,18 @@
             pollingMs = cfg.intervalMs;
             document.getElementById("interval-select").value = pollingMs;
 
-            gaugeCount = cfg.gaugeCount;
-            gaugeCountSel.value = gaugeCount;
+            if (typeof cfg.rows === "number" && typeof cfg.cols === "number"
+                && cfg.rows > 0 && cfg.cols > 0 && cfg.rows * cfg.cols <= 8) {
+              rows = cfg.rows;
+              cols = cfg.cols;
+            } else {
+              // Migrate old configs: lay out existing gaugeCount in a single row
+              rows = 1;
+              cols = Math.min(Math.max(cfg.gaugeCount || 3, 1), 8);
+            }
+            layoutRowsSel.value = rows;
+            layoutColsSel.value = cols;
+            applyLayout();
 
             if (cfg.claudeRefreshSecs) {
               claudeRefreshSel.value = cfg.claudeRefreshSecs;
