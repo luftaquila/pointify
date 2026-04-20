@@ -196,7 +196,7 @@ fn list_serial_ports() -> Vec<SerialPortInfo> {
 
 #[tauri::command]
 fn set_claude_ttl(ttl: State<'_, ClaudeTtl>, secs: u64) {
-    ttl.store(secs, Ordering::Relaxed);
+    ttl.0.store(secs, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -385,7 +385,7 @@ pub fn run() {
     let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
     let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
-    let claude_ttl: ClaudeTtl = Arc::new(AtomicU64::new(120));
+    let claude_ttl = ClaudeTtl(Arc::new(AtomicU64::new(120)));
     let shared_serial: SharedSerial = Arc::new(Mutex::new(None));
     let shared_claude_code_stats: SharedClaudeCodeStats = Arc::new(Mutex::new(None));
     let shared_serial_config: SharedSerialConfig = Arc::new(Mutex::new(SerialConfig::default()));

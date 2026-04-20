@@ -27,7 +27,11 @@ pub struct ClaudeUsageEntry {
 
 pub type ClaudeCache = Arc<Mutex<Option<(Instant, HashMap<String, ClaudeUsageEntry>)>>>;
 pub type SharedClaudeCodeStats = Arc<Mutex<Option<ClaudeCodeStats>>>;
-pub type ClaudeTtl = Arc<AtomicU64>;
+
+/// Newtype wrapper so Tauri's managed-state registry can distinguish this
+/// from other `Arc<AtomicU64>` values (e.g. `SharedInterval`).
+#[derive(Clone)]
+pub struct ClaudeTtl(pub Arc<AtomicU64>);
 
 const USER_AGENT: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0";
@@ -381,7 +385,7 @@ pub fn start_usage_poller(app: tauri::AppHandle, cache: ClaudeCache, ttl: Claude
     std::thread::spawn(move || {
         let client = reqwest::Client::new();
         loop {
-            let ttl_secs = ttl.load(Ordering::Relaxed).max(10);
+            let ttl_secs = ttl.0.load(Ordering::Relaxed).max(10);
 
             let stale = match cache.lock() {
                 Ok(c) => c
