@@ -1931,7 +1931,7 @@
 
             if (cfg.gauges) {
               cfg.gauges.forEach((g, i) => {
-                if (i < 7) {
+                if (i < 8) {
                   const valid = METRIC_ITEMS.some((m) => m.id === g.metricId);
                   gaugeStates[i] = valid
                     ? { metricId: g.metricId, subIndex: g.subIndex, maxValue: g.maxValue, maxUnit: g.maxUnit }
