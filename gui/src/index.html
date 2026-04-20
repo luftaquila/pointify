@@ -1864,6 +1864,13 @@
         if (!document.hidden) forceRepaint();
       });
       window.addEventListener("focus", forceRepaint);
+      // Preventive repaint while the window stays open for long stretches
+      setInterval(forceRepaint, 30000);
+      // Heartbeat so the Rust watchdog can detect a dead WebContent process
+      // and reload us. Start immediately so the first tick doesn't lag 15s.
+      const sendHeartbeat = () => invoke("heartbeat").catch(() => {});
+      sendHeartbeat();
+      setInterval(sendHeartbeat, 10000);
 
       // ── GitHub ──
       const githubLink = document.getElementById("github-link");

@@ -8,6 +8,7 @@ use std::fs;
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -40,6 +41,41 @@ fn show_window(window: &WebviewWindow) {
         }));
         let _ = window.set_size(tauri::Size::Physical(size));
     }
+}
+
+/// Monotonic ms timestamp for heartbeat liveness checks.
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Tracks the last time the frontend reported it was alive.
+/// Seeded at startup so the watchdog doesn't fire before the page loads.
+static LAST_HEARTBEAT_MS: AtomicU64 = AtomicU64::new(0);
+
+/// Reload the WebView when JS stops sending heartbeats.
+/// After days of idle on macOS the WKWebView WebContent process can die,
+/// leaving a blank window that no amount of forceRepaint can recover —
+/// only a full reload brings it back.
+fn start_heartbeat_watchdog(app: tauri::AppHandle) {
+    LAST_HEARTBEAT_MS.store(now_ms(), Ordering::Relaxed);
+    std::thread::spawn(move || {
+        // Grace period before first check: let the page load
+        std::thread::sleep(Duration::from_secs(30));
+        loop {
+            std::thread::sleep(Duration::from_secs(15));
+            let age = now_ms().saturating_sub(LAST_HEARTBEAT_MS.load(Ordering::Relaxed));
+            if age > 60_000 {
+                if let Some(window) = app.get_webview_window("main") {
+                    eprintln!("Heartbeat stale ({}ms), reloading WebView", age);
+                    LAST_HEARTBEAT_MS.store(now_ms(), Ordering::Relaxed);
+                    let _ = window.eval("window.location.reload()");
+                }
+            }
+        }
+    });
 }
 
 #[derive(Serialize)]
@@ -303,6 +339,11 @@ fn get_version() -> &'static str {
 }
 
 #[tauri::command]
+fn heartbeat() {
+    LAST_HEARTBEAT_MS.store(now_ms(), Ordering::Relaxed);
+}
+
+#[tauri::command]
 fn get_firmware_version() -> Option<String> {
     let devices = nusb::list_devices().wait().ok()?;
     for dev in devices {
@@ -381,6 +422,7 @@ pub fn run() {
             get_claude_usage,
             get_version,
             get_firmware_version,
+            heartbeat,
             flasher::fetch_latest_firmware,
             flasher::download_firmware,
             flasher::flash_firmware,
@@ -453,6 +495,10 @@ pub fn run() {
 
             // Watch /dev for USB serial device changes
             start_watching_serial(app.handle().clone());
+
+            // Reload WebView if JS stops sending heartbeats (macOS WKWebView
+            // WebContent process can die after days of idle)
+            start_heartbeat_watchdog(app.handle().clone());
 
             // Start hardware monitoring
             monitor::start_monitoring(shared_metrics.clone(), shared_interval);
