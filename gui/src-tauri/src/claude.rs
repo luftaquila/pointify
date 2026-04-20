@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,7 @@ pub struct ClaudeUsageEntry {
 
 pub type ClaudeCache = Arc<Mutex<Option<(Instant, HashMap<String, ClaudeUsageEntry>)>>>;
 pub type SharedClaudeCodeStats = Arc<Mutex<Option<ClaudeCodeStats>>>;
+pub type ClaudeTtl = Arc<AtomicU64>;
 
 const USER_AGENT: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0";
@@ -368,6 +370,53 @@ pub fn start_watching_stats(app: tauri::AppHandle, shared_stats: SharedClaudeCod
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             }
+        }
+    });
+}
+
+/// Poll the Claude usage API from a background thread so the cache stays
+/// fresh even when the WebView is frozen/blanked (macOS WKWebView issue).
+/// Refetches only when the cache is older than the configured TTL.
+pub fn start_usage_poller(app: tauri::AppHandle, cache: ClaudeCache, ttl: ClaudeTtl) {
+    std::thread::spawn(move || {
+        let client = reqwest::Client::new();
+        loop {
+            let ttl_secs = ttl.load(Ordering::Relaxed).max(10);
+
+            let stale = match cache.lock() {
+                Ok(c) => c
+                    .as_ref()
+                    .map(|(t, _)| t.elapsed() >= Duration::from_secs(ttl_secs))
+                    .unwrap_or(true),
+                Err(_) => false,
+            };
+
+            if stale {
+                if let Ok(dir) = app.path().app_config_dir() {
+                    if let Some(mut creds) = load_credentials(&dir) {
+                        if !creds.session_key.is_empty() && !creds.cf_clearance.is_empty() {
+                            let result: Result<HashMap<String, ClaudeUsageEntry>, String> =
+                                tauri::async_runtime::block_on(async {
+                                    if creds.org_id.is_empty() {
+                                        creds.org_id = fetch_org_id(&client, &creds).await?;
+                                        save_credentials(&dir, &creds);
+                                    }
+                                    fetch_usage(&client, &creds, &creds.org_id).await
+                                });
+                            match result {
+                                Ok(data) => {
+                                    if let Ok(mut c) = cache.lock() {
+                                        *c = Some((Instant::now(), data));
+                                    }
+                                }
+                                Err(e) => eprintln!("Claude usage poll failed: {}", e),
+                            }
+                        }
+                    }
+                }
+            }
+
+            std::thread::sleep(Duration::from_secs(5));
         }
     });
 }

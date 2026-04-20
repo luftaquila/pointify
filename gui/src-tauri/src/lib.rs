@@ -8,7 +8,6 @@ use std::fs;
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -22,7 +21,7 @@ use tauri::{
 use nusb::MaybeFuture;
 use tauri_plugin_autostart::ManagerExt;
 
-use claude::{ClaudeCache, ClaudeUsageEntry, SharedClaudeCodeStats};
+use claude::{ClaudeCache, ClaudeTtl, ClaudeUsageEntry, SharedClaudeCodeStats};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
 use serial_loop::{SerialConfig, SharedSerialConfig};
@@ -42,8 +41,6 @@ fn show_window(window: &WebviewWindow) {
         let _ = window.set_size(tauri::Size::Physical(size));
     }
 }
-
-struct ClaudeTtl(AtomicU64);
 
 #[derive(Serialize)]
 struct MetricOptions {
@@ -163,7 +160,7 @@ fn list_serial_ports() -> Vec<SerialPortInfo> {
 
 #[tauri::command]
 fn set_claude_ttl(ttl: State<'_, ClaudeTtl>, secs: u64) {
-    ttl.0.store(secs, Ordering::Relaxed);
+    ttl.store(secs, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -186,48 +183,11 @@ fn open_claude_env(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn get_claude_usage(
+fn get_claude_usage(
     cache: State<'_, ClaudeCache>,
-    ttl: State<'_, ClaudeTtl>,
-    app: tauri::AppHandle,
 ) -> Result<Option<HashMap<String, ClaudeUsageEntry>>, String> {
-    let cache = cache.inner().clone();
-    let ttl_secs = ttl.0.load(Ordering::Relaxed);
-
-    // Return cached data if fresh
-    {
-        let cached = cache.lock().map_err(|e| e.to_string())?;
-        if let Some((time, data)) = cached.as_ref() {
-            if time.elapsed() < std::time::Duration::from_secs(ttl_secs) {
-                return Ok(Some(data.clone()));
-            }
-        }
-    }
-
-    // Load credentials
-    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let mut creds = match claude::load_credentials(&dir) {
-        Some(c) if !c.session_key.is_empty() && !c.cf_clearance.is_empty() => c,
-        _ => return Ok(None),
-    };
-
-    let client = reqwest::Client::new();
-
-    // Auto-fetch org_id if empty
-    if creds.org_id.is_empty() {
-        creds.org_id = claude::fetch_org_id(&client, &creds).await?;
-        claude::save_credentials(&dir, &creds);
-    }
-
-    let data = claude::fetch_usage(&client, &creds, &creds.org_id).await?;
-
-    // Update cache
-    {
-        let mut cached = cache.lock().map_err(|e| e.to_string())?;
-        *cached = Some((Instant::now(), data.clone()));
-    }
-
-    Ok(Some(data))
+    let cached = cache.lock().map_err(|e| e.to_string())?;
+    Ok(cached.as_ref().map(|(_, data)| data.clone()))
 }
 
 #[tauri::command]
@@ -384,7 +344,7 @@ pub fn run() {
     let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
     let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
-    let claude_ttl = ClaudeTtl(AtomicU64::new(120));
+    let claude_ttl: ClaudeTtl = Arc::new(AtomicU64::new(120));
     let shared_serial: SharedSerial = Arc::new(Mutex::new(None));
     let shared_claude_code_stats: SharedClaudeCodeStats = Arc::new(Mutex::new(None));
     let shared_serial_config: SharedSerialConfig = Arc::new(Mutex::new(SerialConfig::default()));
@@ -399,7 +359,7 @@ pub fn run() {
         .manage(shared_metrics.clone())
         .manage(shared_interval.clone())
         .manage(claude_cache.clone())
-        .manage(claude_ttl)
+        .manage(claude_ttl.clone())
         .manage(shared_serial.clone())
         .manage(shared_claude_code_stats.clone())
         .manage(shared_serial_config.clone())
@@ -500,6 +460,14 @@ pub fn run() {
             // Start .claude.env file watcher
             let claude_cache_watch: ClaudeCache = app.state::<ClaudeCache>().inner().clone();
             claude::start_watching(app.handle().clone(), claude_cache_watch);
+
+            // Poll Claude usage API in background so the cache stays fresh
+            // even when the WebView is frozen (macOS WKWebView blank-screen)
+            claude::start_usage_poller(
+                app.handle().clone(),
+                claude_cache.clone(),
+                claude_ttl.clone(),
+            );
 
             // Start ~/.claude/stats-cache.json file watcher
             claude::start_watching_stats(app.handle().clone(), shared_claude_code_stats.clone());
