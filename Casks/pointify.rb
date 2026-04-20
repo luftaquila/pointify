@@ -1,13 +1,13 @@
 cask "pointify" do
-  version "2.5.1"
+  version "2.6.0"
 
   on_arm do
-    sha256 "803d487b8d3dc7b92b3a8e6a0838690593227aac33dfa935f5a540b5ca336ae4"
+    sha256 "a580369c07e6eb983a9ae85f011315a7b67ac1161b66cc2613f5d4956c5dee6d"
     url "https://github.com/luftaquila/pointify/releases/download/v#{version}/pointify-macos-aarch64.dmg"
   end
 
   on_intel do
-    sha256 "2bc3d32cf6b0f48dbf8938d3a915f5ab9f488fe9dc73399b72de086362affb43"
+    sha256 "da9dd6644729e9a64307258b6ce90938b6038c52eb7366ea472591725374f0b5"
     url "https://github.com/luftaquila/pointify/releases/download/v#{version}/pointify-macos-x86_64.dmg"
   end
 
