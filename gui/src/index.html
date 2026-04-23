@@ -943,73 +943,29 @@
           defaultMaxUnit: "MB/s",
         },
         { sep: true },
-        { id: "claude_5h", label: "Claude 5h Limit", unit: "%", sub: false },
-        { id: "claude_5h_reset", label: "Claude 5h Reset", unit: "%", sub: false },
-        { id: "claude_7d", label: "Claude 7d Limit", unit: "%", sub: false },
-        { id: "claude_7d_reset", label: "Claude 7d Reset", unit: "%", sub: false },
+        { id: "claude_5h", label: "Claude 5h", unit: "%", sub: ["Limit", "Reset"] },
+        { id: "claude_7d", label: "Claude 7d", unit: "%", sub: ["Limit", "Reset"] },
+        { sep: true },
+        { id: "claude_sonnet_7d", label: "Claude Sonnet 7d", unit: "%", sub: ["Limit", "Reset"] },
+        { id: "claude_design_7d", label: "Claude Design 7d", unit: "%", sub: ["Limit", "Reset"] },
+        { id: "claude_extra", label: "Claude Extra Usage", unit: "%", sub: false },
         { sep: true },
         {
-          id: "claude_code_tokens",
-          label: "Claude Code Total Tokens Today",
+          id: "claude_code",
+          label: "Claude Code Today",
           unit: "",
-          sub: false,
+          sub: ["Total Tokens", "I/O Tokens", "Input Tokens", "Output Tokens", "Cache Write", "Cache Read", "Cost"],
           maxUnits: ["K", "M"],
           defaultMax: 10,
           defaultMaxUnit: "M",
-        },
-        {
-          id: "claude_code_io_tokens",
-          label: "Claude Code I/O Tokens Today",
-          unit: "",
-          sub: false,
-          maxUnits: ["K", "M"],
-          defaultMax: 100,
-          defaultMaxUnit: "K",
-        },
-        {
-          id: "claude_code_input_tokens",
-          label: "Claude Code Input Tokens Today",
-          unit: "",
-          sub: false,
-          maxUnits: ["K", "M"],
-          defaultMax: 100,
-          defaultMaxUnit: "K",
-        },
-        {
-          id: "claude_code_output_tokens",
-          label: "Claude Code Output Tokens Today",
-          unit: "",
-          sub: false,
-          maxUnits: ["K", "M"],
-          defaultMax: 100,
-          defaultMaxUnit: "K",
-        },
-        {
-          id: "claude_code_cache_creation_tokens",
-          label: "Claude Code Cache Write Today",
-          unit: "",
-          sub: false,
-          maxUnits: ["K", "M"],
-          defaultMax: 5,
-          defaultMaxUnit: "M",
-        },
-        {
-          id: "claude_code_cache_read_tokens",
-          label: "Claude Code Cache Read Today",
-          unit: "",
-          sub: false,
-          maxUnits: ["K", "M"],
-          defaultMax: 5,
-          defaultMaxUnit: "M",
-        },
-        {
-          id: "claude_code_cost",
-          label: "Claude Code Cost Today",
-          unit: "$",
-          sub: false,
-          maxUnits: ["$", "K$"],
-          defaultMax: 50,
-          defaultMaxUnit: "$",
+          subConfig: {
+            "I/O Tokens": { defaultMax: 100, defaultMaxUnit: "K" },
+            "Input Tokens": { defaultMax: 100, defaultMaxUnit: "K" },
+            "Output Tokens": { defaultMax: 100, defaultMaxUnit: "K" },
+            "Cache Write": { defaultMax: 5, defaultMaxUnit: "M" },
+            "Cache Read": { defaultMax: 5, defaultMaxUnit: "M" },
+            "Cost": { unit: "$", maxUnits: ["$", "K$"], defaultMax: 50, defaultMaxUnit: "$" },
+          },
         },
       ];
 
@@ -1027,9 +983,10 @@
 
       // ── Gauge state ──
       function initGaugeState(def) {
+        const subIndex = Array.isArray(def.sub) ? def.sub[0] : "";
         return {
           metricId: def.id,
-          subIndex: "",
+          subIndex,
           maxValue: def.defaultMax || null,
           maxUnit: def.defaultMaxUnit || null,
         };
@@ -1059,9 +1016,19 @@
             return 1000;
           case "M":
             return 1000000;
+          case "K$":
+            return 1000;
           default:
             return 1;
         }
+      }
+
+      // Merge subConfig overrides for the active target.
+      function effectiveDef(def, subIndex) {
+        if (def && def.subConfig && def.subConfig[subIndex]) {
+          return { ...def, ...def.subConfig[subIndex] };
+        }
+        return def;
       }
 
       const PY = 110; // needle pivot Y
@@ -1178,7 +1145,9 @@
 
       // ── Sub-option dropdowns ──
       function getSubOptions(def) {
-        if (!metricOptions || !def.sub) return null;
+        if (!def.sub) return null;
+        if (Array.isArray(def.sub)) return def.sub;
+        if (!metricOptions) return null;
         switch (def.sub) {
           case "core":
             return ["Top", ...Array.from({ length: metricOptions.cpu_core_count }, (_, i) => `Core ${i}`)];
@@ -1216,7 +1185,15 @@
         if (!opts.includes(gaugeStates[i].subIndex)) gaugeStates[i].subIndex = opts[0];
         sel.value = gaugeStates[i].subIndex;
         sel.onchange = () => {
+          const def = METRIC_ITEMS.find((m) => m.id === gaugeStates[i].metricId);
           gaugeStates[i].subIndex = sel.value;
+          // If the new target swaps unit scale (e.g. tokens → $), reset max defaults.
+          const eff = effectiveDef(def, sel.value);
+          if (eff.maxUnits && !eff.maxUnits.includes(gaugeStates[i].maxUnit)) {
+            gaugeStates[i].maxValue = eff.defaultMax ?? null;
+            gaugeStates[i].maxUnit = eff.defaultMaxUnit ?? null;
+          }
+          updateMaxRow(i);
           saveConfig();
         };
       }
@@ -1228,7 +1205,8 @@
         const row = card.querySelector(`[data-max-row="${i}"]`);
         const inp = card.querySelector(`[data-max-value="${i}"]`),
           usel = card.querySelector(`[data-max-unit="${i}"]`);
-        const def = METRIC_ITEMS.find((m) => m.id === gaugeStates[i].metricId);
+        const baseDef = METRIC_ITEMS.find((m) => m.id === gaugeStates[i].metricId);
+        const def = effectiveDef(baseDef, gaugeStates[i].subIndex);
         if (!def.maxUnits) {
           row.classList.add("hidden");
           return;
@@ -1259,33 +1237,35 @@
       }
 
       // ── Extract value ──
+      function claudeApiValue(bucket, si, totalMin) {
+        if (si === "Reset") return claudeResetPct(bucket?.resets_at, totalMin);
+        return bucket?.utilization ?? null;
+      }
       function extractValue(m, id, si) {
         // Claude metrics (separate data source)
         switch (id) {
           case "claude_5h":
-            return claudeUsage?.five_hour?.utilization ?? null;
-          case "claude_5h_reset":
-            return claudeResetPct(claudeUsage?.five_hour?.resets_at, 5 * 60);
+            return claudeApiValue(claudeUsage?.five_hour, si, 5 * 60);
           case "claude_7d":
-            return claudeUsage?.seven_day?.utilization ?? null;
-          case "claude_7d_reset":
-            return claudeResetPct(claudeUsage?.seven_day?.resets_at, 7 * 24 * 60);
-          case "claude_7d_sonnet":
-            return claudeUsage?.seven_day_sonnet?.utilization ?? null;
-          case "claude_code_tokens":
-            return claudeCodeStats?.total_tokens ?? null;
-          case "claude_code_io_tokens":
-            return claudeCodeStats != null ? claudeCodeStats.input_tokens + claudeCodeStats.output_tokens : null;
-          case "claude_code_input_tokens":
-            return claudeCodeStats?.input_tokens ?? null;
-          case "claude_code_output_tokens":
-            return claudeCodeStats?.output_tokens ?? null;
-          case "claude_code_cache_creation_tokens":
-            return claudeCodeStats?.cache_creation_tokens ?? null;
-          case "claude_code_cache_read_tokens":
-            return claudeCodeStats?.cache_read_tokens ?? null;
-          case "claude_code_cost":
-            return claudeCodeStats?.total_cost ?? null;
+            return claudeApiValue(claudeUsage?.seven_day, si, 7 * 24 * 60);
+          case "claude_sonnet_7d":
+            return claudeApiValue(claudeUsage?.seven_day_sonnet, si, 7 * 24 * 60);
+          case "claude_design_7d":
+            return claudeApiValue(claudeUsage?.seven_day_omelette, si, 7 * 24 * 60);
+          case "claude_extra":
+            return claudeUsage?.extra_usage?.utilization ?? null;
+          case "claude_code":
+            if (!claudeCodeStats) return null;
+            switch (si) {
+              case "Total Tokens": return claudeCodeStats.total_tokens;
+              case "I/O Tokens": return claudeCodeStats.input_tokens + claudeCodeStats.output_tokens;
+              case "Input Tokens": return claudeCodeStats.input_tokens;
+              case "Output Tokens": return claudeCodeStats.output_tokens;
+              case "Cache Write": return claudeCodeStats.cache_creation_tokens;
+              case "Cache Read": return claudeCodeStats.cache_read_tokens;
+              case "Cost": return claudeCodeStats.total_cost;
+              default: return null;
+            }
         }
         // System metrics
         if (!m) return null;
@@ -1392,7 +1372,8 @@
         const card = document.getElementById(`gauge-${gi}`);
         if (!card || card.classList.contains("hidden")) return 0;
         const st = gaugeStates[gi],
-          def = METRIC_ITEMS.find((m) => m.id === st.metricId);
+          baseDef = METRIC_ITEMS.find((m) => m.id === st.metricId),
+          def = effectiveDef(baseDef, st.subIndex);
         const value = extractValue(metrics, st.metricId, st.subIndex);
         const pct = value != null ? Math.min(Math.max(value / getEffectiveMax(gi, def), 0), 1) : 0;
         card.querySelector("[data-needle]").style.transform = `rotate(${needleAngle(pct)}deg)`;
@@ -1441,7 +1422,7 @@
       function needsClaudeApi() {
         for (let i = 0; i < gaugeCount; i++) {
           const id = gaugeStates[i].metricId;
-          if (id.startsWith("claude_") && !id.startsWith("claude_code_")) return true;
+          if (id.startsWith("claude_") && id !== "claude_code") return true;
         }
         return false;
       }

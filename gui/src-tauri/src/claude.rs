@@ -425,6 +425,18 @@ pub fn start_usage_poller(app: tauri::AppHandle, cache: ClaudeCache, ttl: Claude
     });
 }
 
+#[derive(Deserialize)]
+struct ExtraUsageRaw {
+    #[serde(default)]
+    is_enabled: bool,
+    #[serde(default)]
+    monthly_limit: f64,
+    #[serde(default)]
+    used_credits: f64,
+    #[serde(default)]
+    utilization: Option<f64>,
+}
+
 pub async fn fetch_usage(
     client: &reqwest::Client,
     creds: &ClaudeCredentials,
@@ -445,6 +457,23 @@ pub async fn fetch_usage(
 
     let mut result = HashMap::new();
     for (key, value) in data {
+        if key == "extra_usage" {
+            if let Ok(eu) = serde_json::from_value::<ExtraUsageRaw>(value) {
+                if eu.is_enabled && eu.monthly_limit > 0.0 {
+                    let util = eu
+                        .utilization
+                        .unwrap_or(eu.used_credits / eu.monthly_limit * 100.0);
+                    result.insert(
+                        key,
+                        ClaudeUsageEntry {
+                            utilization: util,
+                            resets_at: None,
+                        },
+                    );
+                }
+            }
+            continue;
+        }
         if let Ok(entry) = serde_json::from_value::<ClaudeUsageEntry>(value) {
             result.insert(key, entry);
         }

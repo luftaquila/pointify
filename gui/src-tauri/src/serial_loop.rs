@@ -67,6 +67,7 @@ fn unit_multiplier(unit: &str) -> f64 {
         "GHz" => 1000.0,
         "K" => 1000.0,
         "M" => 1_000_000.0,
+        "K$" => 1000.0,
         _ => 1.0,
     }
 }
@@ -81,10 +82,10 @@ fn is_percentage_metric(id: &str) -> bool {
             | "gpu_util"
             | "gpu_vram"
             | "claude_5h"
-            | "claude_5h_reset"
             | "claude_7d"
-            | "claude_7d_reset"
-            | "claude_7d_sonnet"
+            | "claude_sonnet_7d"
+            | "claude_design_7d"
+            | "claude_extra"
             | "disk_usage"
     )
 }
@@ -116,48 +117,40 @@ fn extract_value(
     metric_id: &str,
     sub_index: &str,
 ) -> Option<f64> {
-    // Claude API metrics
+    // Claude API metrics (sub_index selects target: "Limit" or "Reset")
+    let claude_api = |bucket: &str, total_min: f64| -> Option<f64> {
+        let entry = claude_usage.and_then(|u| u.get(bucket))?;
+        if sub_index == "Reset" {
+            entry
+                .resets_at
+                .as_deref()
+                .and_then(|r| claude_reset_pct(r, total_min))
+        } else {
+            Some(entry.utilization)
+        }
+    };
     match metric_id {
-        "claude_5h" => {
+        "claude_5h" => return claude_api("five_hour", 5.0 * 60.0),
+        "claude_7d" => return claude_api("seven_day", 7.0 * 24.0 * 60.0),
+        "claude_sonnet_7d" => return claude_api("seven_day_sonnet", 7.0 * 24.0 * 60.0),
+        "claude_design_7d" => return claude_api("seven_day_omelette", 7.0 * 24.0 * 60.0),
+        "claude_extra" => {
             return claude_usage
-                .and_then(|u| u.get("five_hour"))
+                .and_then(|u| u.get("extra_usage"))
                 .map(|e| e.utilization);
         }
-        "claude_5h_reset" => {
-            return claude_usage
-                .and_then(|u| u.get("five_hour"))
-                .and_then(|e| e.resets_at.as_deref())
-                .and_then(|r| claude_reset_pct(r, 5.0 * 60.0));
+        "claude_code" => {
+            return claude_code_stats.and_then(|s| match sub_index {
+                "Total Tokens" => Some(s.total_tokens as f64),
+                "I/O Tokens" => Some((s.input_tokens + s.output_tokens) as f64),
+                "Input Tokens" => Some(s.input_tokens as f64),
+                "Output Tokens" => Some(s.output_tokens as f64),
+                "Cache Write" => Some(s.cache_creation_tokens as f64),
+                "Cache Read" => Some(s.cache_read_tokens as f64),
+                "Cost" => Some(s.total_cost),
+                _ => None,
+            });
         }
-        "claude_7d" => {
-            return claude_usage
-                .and_then(|u| u.get("seven_day"))
-                .map(|e| e.utilization);
-        }
-        "claude_7d_reset" => {
-            return claude_usage
-                .and_then(|u| u.get("seven_day"))
-                .and_then(|e| e.resets_at.as_deref())
-                .and_then(|r| claude_reset_pct(r, 7.0 * 24.0 * 60.0));
-        }
-        "claude_7d_sonnet" => {
-            return claude_usage
-                .and_then(|u| u.get("seven_day_sonnet"))
-                .map(|e| e.utilization);
-        }
-        "claude_code_tokens" => return claude_code_stats.map(|s| s.total_tokens as f64),
-        "claude_code_io_tokens" => {
-            return claude_code_stats.map(|s| (s.input_tokens + s.output_tokens) as f64)
-        }
-        "claude_code_input_tokens" => return claude_code_stats.map(|s| s.input_tokens as f64),
-        "claude_code_output_tokens" => return claude_code_stats.map(|s| s.output_tokens as f64),
-        "claude_code_cache_creation_tokens" => {
-            return claude_code_stats.map(|s| s.cache_creation_tokens as f64)
-        }
-        "claude_code_cache_read_tokens" => {
-            return claude_code_stats.map(|s| s.cache_read_tokens as f64)
-        }
-        "claude_code_cost" => return claude_code_stats.map(|s| s.total_cost),
         _ => {}
     }
 
