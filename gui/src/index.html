@@ -395,6 +395,135 @@
     }
     .modal-output.hidden { display: none; }
 
+    /* ── Credentials modal ── */
+    .modal-box.wide { width: 560px; }
+    .modal-section { margin-top: 6px; margin-bottom: 20px; }
+    .modal-section h3 {
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 10px;
+    }
+    .field-label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+      margin-bottom: 4px;
+    }
+    .field-help {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 4px 0 8px;
+      line-height: 1.5;
+    }
+    .modal-input {
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: monospace;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    .modal-input:focus { outline: none; border-color: var(--accent); }
+    .account-row {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: var(--bg-input);
+    }
+    .account-row .account-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .account-row .account-label {
+      font-size: 14px;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      margin-right: 8px;
+    }
+    .account-row .account-orgs {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .account-row .account-orgs .org-empty { font-style: italic; }
+    .account-row .account-orgs ul { margin: 0; padding-left: 16px; }
+    .modal-preview {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-input);
+      font-size: 13px;
+      color: var(--text);
+    }
+    .modal-preview .k { color: var(--muted); }
+    .modal-preview ul { margin: 6px 0 0; padding-left: 16px; color: var(--muted); }
+    .account-row .account-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .account-row button {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .account-row button:hover { border-color: var(--accent); color: var(--accent); }
+    .modal-section .empty {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 10px 6px;
+      font-style: italic;
+    }
+    .modal-section .inline-btn {
+      height: 32px;
+      padding: 0 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .modal-section .inline-btn:hover { border-color: var(--accent); }
+    .form-error {
+      font-size: 12px;
+      color: #e05050;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+    .codex-identity {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-input);
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.8;
+    }
+    .codex-identity .row { display: flex; justify-content: space-between; margin: 2px 0; }
+    .codex-identity .row .k { color: var(--muted); }
+    .codex-identity.empty { color: var(--muted); font-style: italic; }
+
     /* ── Gauge grid ── */
     .grid {
       display: grid;
@@ -676,7 +805,7 @@
         </div>
 
         <div class="sidebar-section">
-          <h2>Usage</h2>
+          <h2>LLM USAGE</h2>
           <div class="setting-row">
             <span>Refresh</span>
             <select id="claude-refresh-select">
@@ -690,7 +819,7 @@
             </select>
           </div>
           <button
-            id="open-claude-env"
+            id="credentials-btn"
             style="
           width:100%; height:28px; padding:0 8px;
           background:var(--bg-input); border:1px solid var(--border); border-radius:4px;
@@ -698,7 +827,7 @@
           transition:background .3s,border-color .3s,color .3s;
         "
           >
-            Open .claude.env
+            Credentials
           </button>
         </div>
 
@@ -767,6 +896,47 @@
       <main>
         <div class="grid" id="gauge-grid"></div>
       </main>
+    </div>
+
+    <!-- Credentials modal -->
+    <div id="credentials-modal" class="modal-overlay hidden">
+      <div class="modal-box wide">
+        <div class="modal-header">
+          <span>Credentials</span>
+          <button id="credentials-modal-close" class="modal-close">&times;</button>
+        </div>
+
+        <div class="modal-section">
+          <h3>Claude</h3>
+          <div id="claude-accounts-list"></div>
+          <div id="claude-account-form" class="hidden" style="margin-top:8px;">
+            <label class="field-label">Session Key</label>
+            <input id="claude-session-key" class="modal-input" placeholder="sk-ant-sid-..." autocomplete="off" spellcheck="false">
+            <p class="field-help">claude.ai 쿠키의 <code>sessionKey</code> 값</p>
+
+            <label class="field-label">CF Clearance</label>
+            <input id="claude-cf-clearance" class="modal-input" placeholder="cf_clearance cookie value" autocomplete="off" spellcheck="false">
+            <p class="field-help">claude.ai 쿠키의 <code>cf_clearance</code> 값</p>
+
+            <div id="claude-verified-preview" class="hidden"></div>
+
+            <div class="form-error" id="claude-form-error"></div>
+
+            <div class="modal-actions">
+              <button id="claude-account-save" class="disabled">Verify &amp; Save</button>
+              <button id="claude-account-cancel">Cancel</button>
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <button id="claude-account-add" class="inline-btn">+ Add Claude Account</button>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3>Codex</h3>
+          <div id="codex-identity-box" class="codex-identity empty">Loading…</div>
+        </div>
+      </div>
     </div>
 
     <!-- Firmware modal -->
@@ -986,11 +1156,35 @@
       let overshoot = false;
 
       // ── Gauge state ──
+      // A gauge metric is account-scoped only for Claude API metrics.
+      // Claude Code reads local JSONL and Codex has a single active account.
+      function metricNeedsAccount(metricId) {
+        return typeof metricId === "string"
+          && metricId.startsWith("claude_")
+          && metricId !== "claude_code";
+      }
+      // Flatten registered accounts to (account, org) pairs for the gauge picker.
+      function accountOrgPairs() {
+        const pairs = [];
+        for (const acc of claudeAccounts) {
+          for (const org of (acc.orgs || [])) {
+            pairs.push({ account: acc, org });
+          }
+        }
+        return pairs;
+      }
       function initGaugeState(def) {
         const subIndex = Array.isArray(def.sub) ? def.sub[0] : "";
+        let accountId = null, orgId = null;
+        if (metricNeedsAccount(def.id)) {
+          const first = accountOrgPairs()[0];
+          if (first) { accountId = first.account.id; orgId = first.org.uuid; }
+        }
         return {
           metricId: def.id,
           subIndex,
+          accountId,
+          orgId,
           maxValue: def.defaultMax || null,
           maxUnit: def.defaultMaxUnit || null,
         };
@@ -1103,6 +1297,7 @@
             `
         <div class="gauge-selectors">
           <div class="ctrl-row"><label>Metric</label><select data-metric-select="${i}"></select></div>
+          <div class="ctrl-row hidden" data-account-row="${i}"><label>Account</label><select data-account-select="${i}"></select></div>
           <div class="ctrl-row hidden" data-sub-row="${i}"><label>Target</label><select data-sub-select="${i}"></select></div>
           <div class="ctrl-row hidden" data-max-row="${i}"><label>Max</label><input type="number" data-max-value="${i}" step="any" min="0"><select class="max-unit" data-max-unit="${i}"></select></div>
         </div>`;
@@ -1127,8 +1322,23 @@
           metricSel.addEventListener("change", () => {
             const def = METRIC_ITEMS.find((m) => m.id === metricSel.value);
             gaugeStates[i] = initGaugeState(def);
+            updateAccountDropdown(i);
             updateSubDropdown(i);
             updateMaxRow(i);
+            saveConfig();
+          });
+
+          const accountSel = card.querySelector(`[data-account-select="${i}"]`);
+          accountSel.addEventListener("change", () => {
+            const val = accountSel.value || "";
+            const sep = val.indexOf(":");
+            if (sep < 0) {
+              gaugeStates[i].accountId = null;
+              gaugeStates[i].orgId = null;
+            } else {
+              gaugeStates[i].accountId = val.slice(0, sep);
+              gaugeStates[i].orgId = val.slice(sep + 1);
+            }
             saveConfig();
           });
 
@@ -1227,12 +1437,62 @@
         usel.value = gaugeStates[i].maxUnit;
       }
 
+      function updateAccountDropdown(i) {
+        const card = document.getElementById(`gauge-${i}`);
+        if (!card) return;
+        const row = card.querySelector(`[data-account-row="${i}"]`);
+        const sel = card.querySelector(`[data-account-select="${i}"]`);
+        if (!metricNeedsAccount(gaugeStates[i].metricId)) {
+          row.classList.add("hidden");
+          sel.innerHTML = "";
+          return;
+        }
+        const pairs = accountOrgPairs();
+        sel.innerHTML = "";
+        if (!pairs.length) {
+          const o = document.createElement("option");
+          o.value = "";
+          o.textContent = "(no accounts)";
+          o.disabled = true;
+          sel.appendChild(o);
+          gaugeStates[i].accountId = null;
+          gaugeStates[i].orgId = null;
+          row.classList.remove("hidden");
+          return;
+        }
+        for (const { account, org } of pairs) {
+          const o = document.createElement("option");
+          o.value = `${account.id}:${org.uuid}`;
+          o.textContent = accountOrgLabel(account, org);
+          sel.appendChild(o);
+        }
+        const currentKey = gaugeStates[i].accountId && gaugeStates[i].orgId
+          ? `${gaugeStates[i].accountId}:${gaugeStates[i].orgId}`
+          : "";
+        const match = pairs.find(
+          (p) => `${p.account.id}:${p.org.uuid}` === currentKey,
+        );
+        if (!match) {
+          gaugeStates[i].accountId = pairs[0].account.id;
+          gaugeStates[i].orgId = pairs[0].org.uuid;
+        }
+        sel.value = `${gaugeStates[i].accountId}:${gaugeStates[i].orgId}`;
+        row.classList.remove("hidden");
+      }
+
       function updateAllControls() {
         for (let i = 0; i < 8; i++) {
+          updateAccountDropdown(i);
           updateSubDropdown(i);
           updateMaxRow(i);
         }
       }
+
+      // Refresh all Account dropdowns whenever the credentials store changes
+      window.addEventListener("pointify-accounts-changed", () => {
+        for (let i = 0; i < 8; i++) updateAccountDropdown(i);
+        saveConfig();
+      });
 
       function claudeResetPct(resetAt, totalMin) {
         if (!resetAt) return null;
@@ -1256,19 +1516,30 @@
         if (si === "Reset") return codexResetPct(w.reset_at, totalMin);
         return w.used_percent ?? null;
       }
-      function extractValue(m, id, si) {
-        // Claude metrics (separate data source)
+      function extractValue(m, id, si, accountId, orgId) {
+        // Claude API data is keyed by "{accountId}:{orgId}". Fall back to same-account
+        // first, then to any known entry, so deletions / pre-multi-org configs don't
+        // blank out the gauge.
+        const key = accountId && orgId ? `${accountId}:${orgId}` : null;
+        const samePrefix = accountId ? `${accountId}:` : null;
+        const claudeAcct = claudeUsage
+          ? (claudeUsage[key]
+              ?? (samePrefix
+                  ? Object.entries(claudeUsage).find(([k]) => k.startsWith(samePrefix))?.[1]
+                  : null)
+              ?? claudeUsage[Object.keys(claudeUsage)[0]])
+          : null;
         switch (id) {
           case "claude_5h":
-            return claudeApiValue(claudeUsage?.five_hour, si, 5 * 60);
+            return claudeApiValue(claudeAcct?.five_hour, si, 5 * 60);
           case "claude_7d":
-            return claudeApiValue(claudeUsage?.seven_day, si, 7 * 24 * 60);
+            return claudeApiValue(claudeAcct?.seven_day, si, 7 * 24 * 60);
           case "claude_sonnet_7d":
-            return claudeApiValue(claudeUsage?.seven_day_sonnet, si, 7 * 24 * 60);
+            return claudeApiValue(claudeAcct?.seven_day_sonnet, si, 7 * 24 * 60);
           case "claude_design_7d":
-            return claudeApiValue(claudeUsage?.seven_day_omelette, si, 7 * 24 * 60);
+            return claudeApiValue(claudeAcct?.seven_day_omelette, si, 7 * 24 * 60);
           case "claude_extra":
-            return claudeUsage?.extra_usage?.utilization ?? null;
+            return claudeAcct?.extra_usage?.utilization ?? null;
           case "claude_code":
             if (!claudeCodeStats) return null;
             switch (si) {
@@ -1393,7 +1664,7 @@
         const st = gaugeStates[gi],
           baseDef = METRIC_ITEMS.find((m) => m.id === st.metricId),
           def = effectiveDef(baseDef, st.subIndex);
-        const value = extractValue(metrics, st.metricId, st.subIndex);
+        const value = extractValue(metrics, st.metricId, st.subIndex, st.accountId, st.orgId);
         const pct = value != null ? Math.min(Math.max(value / getEffectiveMax(gi, def), 0), 1) : 0;
         card.querySelector("[data-needle]").style.transform = `rotate(${needleAngle(pct)}deg)`;
         const fmt = formatDisplay(value, def, st);
@@ -1511,6 +1782,8 @@
             gauges: gaugeStates.slice(0, gaugeCount).map((s) => ({
               metricId: s.metricId,
               subIndex: s.subIndex,
+              accountId: s.accountId ?? null,
+              orgId: s.orgId ?? null,
               maxValue: s.maxValue,
               maxUnit: s.maxUnit,
             })),
@@ -1862,6 +2135,8 @@
               gauges: gaugeStates.map((s) => ({
                 metricId: s.metricId,
                 subIndex: s.subIndex,
+                accountId: s.accountId ?? null,
+                orgId: s.orgId ?? null,
                 maxValue: s.maxValue,
                 maxUnit: s.maxUnit,
               })),
@@ -1895,17 +2170,272 @@
         saveConfig();
       });
 
-      document.getElementById("open-claude-env").addEventListener("click", () => {
-        invoke("open_claude_env");
-      });
-      window.__TAURI__.event.listen("claude-env-changed", () => {
-        claudeUsage = null;
-      });
       window.__TAURI__.event.listen("claude-code-stats-changed", (e) => {
         claudeCodeStats = e.payload;
       });
       window.__TAURI__.event.listen("codex-auth-changed", () => {
         codexUsage = null;
+      });
+
+      // ── Credentials modal ──
+      let claudeAccounts = [];           // current registered Claude accounts (backend-owned)
+      let credFormState = {
+        editingId: null,                 // null = adding
+      };
+      const credModal = document.getElementById("credentials-modal");
+      const credListEl = document.getElementById("claude-accounts-list");
+      const credFormEl = document.getElementById("claude-account-form");
+      const credSessionIn = document.getElementById("claude-session-key");
+      const credCfIn = document.getElementById("claude-cf-clearance");
+      const credPreviewEl = document.getElementById("claude-verified-preview");
+      const credSaveBtn = document.getElementById("claude-account-save");
+      const credCancelBtn = document.getElementById("claude-account-cancel");
+      const credAddBtn = document.getElementById("claude-account-add");
+      const credErrorEl = document.getElementById("claude-form-error");
+      const codexIdentityBox = document.getElementById("codex-identity-box");
+
+      // Orgs auto-named after the signed-in email are Claude's default
+      // "personal workspace" — show as "(Personal)" instead of repeating the email.
+      function orgDisplayName(account, org) {
+        if (account && account.email && org && org.name === `${account.email}'s Organization`) {
+          return "Personal";
+        }
+        return (org && org.name) ? org.name : (org ? org.uuid.slice(0, 8) : "");
+      }
+      function accountDisplayName(account) {
+        return account.displayName || account.email || "Claude";
+      }
+      function accountOrgLabel(account, org) {
+        const display = accountDisplayName(account);
+        // Disambiguate when two accounts share the same display name (e.g.
+        // both "luftaquila") — tag the email only for the affected rows.
+        const collisions = claudeAccounts.filter((a) => accountDisplayName(a) === display);
+        if (collisions.length > 1 && account.email) {
+          return `${display} · ${account.email} (${orgDisplayName(account, org)})`;
+        }
+        return `${display} (${orgDisplayName(account, org)})`;
+      }
+
+      function renderClaudeAccounts() {
+        credListEl.innerHTML = "";
+        if (!claudeAccounts.length) {
+          const d = document.createElement("div");
+          d.className = "empty";
+          d.textContent = "No Claude accounts — click + Add Claude Account.";
+          credListEl.appendChild(d);
+          return;
+        }
+        for (const acc of claudeAccounts) {
+          const row = document.createElement("div");
+          row.className = "account-row";
+          const head = document.createElement("div");
+          head.className = "account-head";
+          const label = document.createElement("div");
+          label.className = "account-label";
+          label.textContent = accountDisplayName(acc)
+            + (acc.email ? ` — ${acc.email}` : "");
+          const actions = document.createElement("div");
+          actions.className = "account-actions";
+          const edit = document.createElement("button");
+          edit.textContent = "Edit";
+          edit.addEventListener("click", () => openFormForEdit(acc));
+          const del = document.createElement("button");
+          del.textContent = "Delete";
+          del.addEventListener("click", async () => {
+            if (!confirm(`Delete ${accountDisplayName(acc)}?`)) return;
+            try {
+              await invoke("delete_claude_account", { id: acc.id });
+              await reloadClaudeAccounts();
+            } catch (e) {
+              alert("Delete failed: " + e);
+            }
+          });
+          actions.appendChild(edit);
+          actions.appendChild(del);
+          head.appendChild(label);
+          head.appendChild(actions);
+          row.appendChild(head);
+
+          const orgsEl = document.createElement("div");
+          orgsEl.className = "account-orgs";
+          if (!acc.orgs || !acc.orgs.length) {
+            const e = document.createElement("div");
+            e.className = "org-empty";
+            e.textContent = "Loading organizations…";
+            orgsEl.appendChild(e);
+          } else {
+            const ul = document.createElement("ul");
+            for (const o of acc.orgs) {
+              const li = document.createElement("li");
+              const disp = orgDisplayName(acc, o);
+              li.textContent = o.plan ? `${disp} (${o.plan})` : disp;
+              ul.appendChild(li);
+            }
+            orgsEl.appendChild(ul);
+          }
+          row.appendChild(orgsEl);
+          credListEl.appendChild(row);
+        }
+      }
+
+      function openFormForAdd() {
+        credFormState = { editingId: null };
+        credSessionIn.value = "";
+        credCfIn.value = "";
+        credPreviewEl.classList.add("hidden");
+        credPreviewEl.innerHTML = "";
+        credErrorEl.textContent = "";
+        credSaveBtn.textContent = "Verify & Save";
+        credSaveBtn.classList.remove("disabled", "busy");
+        credFormEl.classList.remove("hidden");
+        credAddBtn.classList.add("hidden");
+        credSessionIn.focus();
+      }
+
+      function openFormForEdit(acc) {
+        credFormState = { editingId: acc.id };
+        credSessionIn.value = acc.sessionKey || "";
+        credCfIn.value = acc.cfClearance || "";
+        credPreviewEl.classList.add("hidden");
+        credPreviewEl.innerHTML = "";
+        credErrorEl.textContent = "";
+        credSaveBtn.textContent = "Verify & Save";
+        credSaveBtn.classList.remove("disabled", "busy");
+        credFormEl.classList.remove("hidden");
+        credAddBtn.classList.add("hidden");
+        credSessionIn.focus();
+      }
+
+      function closeForm() {
+        credFormEl.classList.add("hidden");
+        credAddBtn.classList.remove("hidden");
+        credFormState = { editingId: null };
+      }
+
+      credAddBtn.addEventListener("click", openFormForAdd);
+      credCancelBtn.addEventListener("click", closeForm);
+
+      credSaveBtn.addEventListener("click", async () => {
+        const sessionKey = credSessionIn.value.trim();
+        const cfClearance = credCfIn.value.trim();
+        if (!sessionKey || !cfClearance) {
+          credErrorEl.textContent = "Both Session Key and CF Clearance are required.";
+          return;
+        }
+        credErrorEl.textContent = "";
+        credSaveBtn.classList.add("busy");
+        try {
+          const info = await invoke("verify_claude_credentials", { sessionKey, cfClearance });
+          const memberships = info.memberships || [];
+          if (memberships.length === 0) {
+            credErrorEl.textContent = "No organizations found for this account.";
+            credSaveBtn.classList.remove("busy");
+            return;
+          }
+          const previewAccount = { email: info.email, displayName: info.displayName };
+          credPreviewEl.classList.remove("hidden");
+          credPreviewEl.innerHTML = "";
+          const who = document.createElement("div");
+          who.innerHTML = `<span class="k">Account</span> ${accountDisplayName(previewAccount)}${info.email ? ` — ${info.email}` : ""}`;
+          credPreviewEl.appendChild(who);
+          const orgsHead = document.createElement("div");
+          orgsHead.className = "k";
+          orgsHead.style.marginTop = "4px";
+          orgsHead.textContent = `Organizations (${memberships.length})`;
+          credPreviewEl.appendChild(orgsHead);
+          const ul = document.createElement("ul");
+          for (const m of memberships) {
+            const li = document.createElement("li");
+            const disp = orgDisplayName(previewAccount, m);
+            li.textContent = m.plan ? `${disp} (${m.plan})` : disp;
+            ul.appendChild(li);
+          }
+          credPreviewEl.appendChild(ul);
+          const account = {
+            id: credFormState.editingId
+              || (crypto.randomUUID ? crypto.randomUUID()
+                : ("acct-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8))),
+            sessionKey,
+            cfClearance,
+            email: info.email || null,
+            displayName: info.displayName || null,
+            orgs: memberships.map((m) => ({
+              uuid: m.uuid,
+              name: m.name || "",
+              plan: m.plan || null,
+            })),
+          };
+          await invoke("save_claude_account", { account });
+          await reloadClaudeAccounts();
+          closeForm();
+        } catch (e) {
+          credErrorEl.textContent = "Failed: " + e;
+          credSaveBtn.classList.remove("busy");
+        }
+      });
+
+      async function reloadClaudeAccounts() {
+        try {
+          claudeAccounts = await invoke("list_claude_accounts");
+        } catch {
+          claudeAccounts = [];
+        }
+        renderClaudeAccounts();
+        // Tell gauges to refresh their Account dropdowns
+        window.dispatchEvent(new CustomEvent("pointify-accounts-changed"));
+      }
+
+      async function reloadCodexIdentity() {
+        try {
+          const id = await invoke("get_codex_identity");
+          if (!id) {
+            codexIdentityBox.classList.add("empty");
+            codexIdentityBox.textContent = "Codex CLI not logged in — run `codex login`.";
+            return;
+          }
+          codexIdentityBox.classList.remove("empty");
+          codexIdentityBox.innerHTML = "";
+          const rows = [
+            ["Name", id.name],
+            ["Email", id.email],
+            ["Plan", id.plan_type || id.planType],
+          ];
+          for (const [k, v] of rows) {
+            if (!v) continue;
+            const r = document.createElement("div");
+            r.className = "row";
+            const ke = document.createElement("span"); ke.className = "k"; ke.textContent = k;
+            const ve = document.createElement("span"); ve.textContent = v;
+            r.appendChild(ke); r.appendChild(ve);
+            codexIdentityBox.appendChild(r);
+          }
+        } catch {
+          codexIdentityBox.classList.add("empty");
+          codexIdentityBox.textContent = "Unable to read Codex identity.";
+        }
+      }
+
+      async function openCredentialsModal() {
+        credModal.classList.remove("hidden");
+        closeForm();
+        await Promise.all([reloadClaudeAccounts(), reloadCodexIdentity()]);
+      }
+
+      function closeCredentialsModal() {
+        credModal.classList.add("hidden");
+        closeForm();
+      }
+
+      document.getElementById("credentials-btn")
+        .addEventListener("click", openCredentialsModal);
+      document.getElementById("credentials-modal-close")
+        .addEventListener("click", closeCredentialsModal);
+      credModal.addEventListener("click", (e) => {
+        if (e.target === credModal) closeCredentialsModal();
+      });
+
+      window.__TAURI__.event.listen("credentials-changed", async () => {
+        await reloadClaudeAccounts();
       });
 
       // ── Recover from blank screen (macOS WKWebView) ──
@@ -1950,6 +2480,8 @@
 
       // ── Init ──
       async function init() {
+        // Load Claude accounts up front so gauge dropdowns can render correctly
+        await reloadClaudeAccounts();
         try {
           const cfg = await invoke("load_config").catch(() => null);
           if (cfg) {
@@ -1997,9 +2529,41 @@
               cfg.gauges.forEach((g, i) => {
                 if (i < 8) {
                   const valid = METRIC_ITEMS.some((m) => m.id === g.metricId);
-                  gaugeStates[i] = valid
-                    ? { metricId: g.metricId, subIndex: g.subIndex, maxValue: g.maxValue, maxUnit: g.maxUnit }
-                    : initGaugeState(METRIC_ITEMS[i % METRIC_ITEMS.length]);
+                  if (!valid) {
+                    gaugeStates[i] = initGaugeState(METRIC_ITEMS[i % METRIC_ITEMS.length]);
+                    return;
+                  }
+                  // Backfill account/org from the first registered pair when the
+                  // gauge predates multi-account or references a deleted entry.
+                  let accountId = g.accountId ?? null;
+                  let orgId = g.orgId ?? null;
+                  if (metricNeedsAccount(g.metricId)) {
+                    const pairs = accountOrgPairs();
+                    const exists = pairs.some(
+                      (p) => p.account.id === accountId && p.org.uuid === orgId,
+                    );
+                    if (!exists) {
+                      // Prefer to keep a known account and just pick its first org
+                      const sameAcct = pairs.find((p) => p.account.id === accountId);
+                      if (sameAcct) {
+                        orgId = sameAcct.org.uuid;
+                      } else if (pairs[0]) {
+                        accountId = pairs[0].account.id;
+                        orgId = pairs[0].org.uuid;
+                      } else {
+                        accountId = null;
+                        orgId = null;
+                      }
+                    }
+                  }
+                  gaugeStates[i] = {
+                    metricId: g.metricId,
+                    subIndex: g.subIndex,
+                    accountId,
+                    orgId,
+                    maxValue: g.maxValue,
+                    maxUnit: g.maxUnit,
+                  };
                 }
               });
             }

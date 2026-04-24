@@ -17,6 +17,13 @@ pub struct CodexUsageWindow {
 }
 
 #[derive(Serialize, Clone, Default)]
+pub struct CodexIdentity {
+    pub email: Option<String>,
+    pub name: Option<String>,
+    pub plan_type: Option<String>,
+}
+
+#[derive(Serialize, Clone, Default)]
 pub struct CodexUsage {
     pub primary: Option<CodexUsageWindow>,
     pub secondary: Option<CodexUsageWindow>,
@@ -36,6 +43,43 @@ fn read_access_token() -> Option<String> {
         .get("access_token")?
         .as_str()
         .map(|s| s.to_string())
+}
+
+fn read_id_token() -> Option<String> {
+    let path = auth_path()?;
+    let file = fs::File::open(path).ok()?;
+    let v: serde_json::Value = serde_json::from_reader(file).ok()?;
+    v.get("tokens")?
+        .get("id_token")?
+        .as_str()
+        .map(|s| s.to_string())
+}
+
+fn decode_jwt_claims(token: &str) -> Option<serde_json::Value> {
+    use base64::Engine;
+    let payload_b64 = token.split('.').nth(1)?;
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload_b64)
+        .ok()?;
+    serde_json::from_slice(&decoded).ok()
+}
+
+/// Decode the ID token from ~/.codex/auth.json and return identity fields.
+/// Returns None when auth.json is absent or malformed; ID token validity
+/// (exp) is intentionally not checked — identity claims remain correct
+/// even after the short-lived id_token expires.
+pub fn read_identity() -> Option<CodexIdentity> {
+    let token = read_id_token()?;
+    let claims = decode_jwt_claims(&token)?;
+    Some(CodexIdentity {
+        email: claims.get("email").and_then(|v| v.as_str()).map(String::from),
+        name: claims.get("name").and_then(|v| v.as_str()).map(String::from),
+        plan_type: claims
+            .get("https://api.openai.com/auth")
+            .and_then(|v| v.get("chatgpt_plan_type"))
+            .and_then(|v| v.as_str())
+            .map(String::from),
+    })
 }
 
 pub async fn fetch_usage(client: &reqwest::Client) -> Result<CodexUsage, String> {

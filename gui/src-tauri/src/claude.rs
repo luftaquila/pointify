@@ -1,21 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::BufRead;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use notify::{Event, EventKind, RecursiveMode, Watcher};
+use notify::{Event, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 
-#[derive(Clone, Default)]
-pub struct ClaudeCredentials {
-    pub session_key: String,
-    pub cf_clearance: String,
-    pub org_id: String,
-}
+use crate::credentials::{ClaudeAccount, ClaudeOrg, SharedCredentials};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ClaudeUsageEntry {
@@ -25,7 +20,14 @@ pub struct ClaudeUsageEntry {
     pub resets_at: Option<String>,
 }
 
-pub type ClaudeCache = Arc<Mutex<Option<(Instant, HashMap<String, ClaudeUsageEntry>)>>>;
+/// Per (account, org) cache: map `"{account_id}:{org_id}"` → (fetch time, bucket→entry).
+/// A key absent from the map means that pair hasn't been fetched yet.
+pub type ClaudeCache = Arc<Mutex<HashMap<String, (Instant, HashMap<String, ClaudeUsageEntry>)>>>;
+
+/// Compose the cache key used everywhere (poller, Tauri command, serial_loop).
+pub fn cache_key(account_id: &str, org_id: &str) -> String {
+    format!("{}:{}", account_id, org_id)
+}
 pub type SharedClaudeCodeStats = Arc<Mutex<Option<ClaudeCodeStats>>>;
 
 /// Newtype wrapper so Tauri's managed-state registry can distinguish this
@@ -36,106 +38,8 @@ pub struct ClaudeTtl(pub Arc<AtomicU64>);
 const USER_AGENT: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0";
 
-fn env_path(config_dir: &Path) -> PathBuf {
-    config_dir.join(".claude.env")
-}
-
-const ENV_TEMPLATE: &str = "\
-SESSION_KEY=
-CF_CLEARANCE=
-ORG_ID=
-";
-
-pub fn load_credentials(config_dir: &Path) -> Option<ClaudeCredentials> {
-    let content = fs::read_to_string(env_path(config_dir)).ok()?;
-    let mut creds = ClaudeCredentials::default();
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if let Some((key, value)) = line.split_once('=') {
-            let key = key.trim();
-            let value = value.trim();
-            match key {
-                "SESSION_KEY" => creds.session_key = value.to_string(),
-                "CF_CLEARANCE" => creds.cf_clearance = value.to_string(),
-                "ORG_ID" => creds.org_id = value.to_string(),
-                _ => {}
-            }
-        }
-    }
-    Some(creds)
-}
-
-pub fn save_credentials(config_dir: &Path, creds: &ClaudeCredentials) {
-    let _ = fs::create_dir_all(config_dir);
-    let content = format!(
-        "SESSION_KEY={}\nCF_CLEARANCE={}\nORG_ID={}\n",
-        creds.session_key, creds.cf_clearance, creds.org_id
-    );
-    let _ = fs::write(env_path(config_dir), content);
-}
-
-/// Ensure .claude.env exists (create with template if missing) and return its path.
-pub fn ensure_env_file(config_dir: &Path) -> PathBuf {
-    let path = env_path(config_dir);
-    if !path.exists() {
-        let _ = fs::create_dir_all(config_dir);
-        let _ = fs::write(&path, ENV_TEMPLATE);
-    }
-    path
-}
-
-/// Watch .claude.env for changes. On modification, clear the cache and emit an event.
-pub fn start_watching(app: tauri::AppHandle, cache: ClaudeCache) {
-    let config_dir = match app.path().app_config_dir() {
-        Ok(d) => d,
-        Err(_) => return,
-    };
-
-    let env_file = ensure_env_file(&config_dir);
-
-    std::thread::spawn(move || {
-        let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
-
-        let mut watcher = match notify::recommended_watcher(tx) {
-            Ok(w) => w,
-            Err(e) => {
-                eprintln!("Failed to create file watcher: {}", e);
-                return;
-            }
-        };
-
-        // Watch the config directory (covers file creation/replacement)
-        if let Err(e) = watcher.watch(config_dir.as_path(), RecursiveMode::NonRecursive) {
-            eprintln!("Failed to watch config dir: {}", e);
-            return;
-        }
-
-        for result in rx {
-            match result {
-                Ok(event) => {
-                    let dominated =
-                        matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_));
-                    if dominated && event.paths.iter().any(|p| p == &env_file) {
-                        if let Ok(mut c) = cache.lock() {
-                            *c = None;
-                        }
-                        let _ = app.emit("claude-env-changed", ());
-                    }
-                }
-                Err(e) => eprintln!("File watch error: {}", e),
-            }
-        }
-    });
-}
-
-fn build_cookie(creds: &ClaudeCredentials) -> String {
-    format!(
-        "sessionKey={}; cf_clearance={}",
-        creds.session_key, creds.cf_clearance
-    )
+fn build_cookie(session_key: &str, cf_clearance: &str) -> String {
+    format!("sessionKey={}; cf_clearance={}", session_key, cf_clearance)
 }
 
 fn request_builder(client: &reqwest::Client, url: &str, cookie: &str) -> reqwest::RequestBuilder {
@@ -148,26 +52,297 @@ fn request_builder(client: &reqwest::Client, url: &str, cookie: &str) -> reqwest
         .header("Referer", "https://claude.ai/settings/usage")
 }
 
-pub async fn fetch_org_id(
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OrgMembership {
+    pub uuid: String,
+    pub name: String,
+    pub plan: Option<String>,
+}
+
+/// Infer a Claude plan label from a membership payload. Only covers cases
+/// we've verified against live `/api/account` responses; anything else
+/// returns None so the UI stays honest instead of guessing.
+///
+/// Verified signals:
+///   - `membership.seat_tier == "team_tier_1"` → Team Premium seat
+///   - org `capabilities` includes `claude_pro` → Pro
+///   - org `capabilities == ["chat"]` with no seat → Free
+fn infer_plan(org: &serde_json::Value, seat_tier: Option<&str>) -> Option<String> {
+    if seat_tier == Some("team_tier_1") {
+        return Some("Team Premium".to_string());
+    }
+    let caps: Vec<&str> = org
+        .get("capabilities")
+        .and_then(|c| c.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+        .unwrap_or_default();
+    if caps.contains(&"claude_pro") {
+        return Some("Pro".to_string());
+    }
+    if seat_tier.is_none() && caps.len() == 1 && caps[0] == "chat" {
+        return Some("Free".to_string());
+    }
+    None
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountInfo {
+    pub email: Option<String>,
+    pub display_name: Option<String>,
+    pub memberships: Vec<OrgMembership>,
+}
+
+/// Fetch `/api/account` — primary identity + organization memberships.
+pub async fn fetch_account_info(
     client: &reqwest::Client,
-    creds: &ClaudeCredentials,
-) -> Result<String, String> {
-    let cookie = build_cookie(creds);
-    let resp = request_builder(client, "https://claude.ai/api/organizations", &cookie)
+    session_key: &str,
+    cf_clearance: &str,
+) -> Result<AccountInfo, String> {
+    let cookie = build_cookie(session_key, cf_clearance);
+    let resp = request_builder(client, "https://claude.ai/api/account", &cookie)
         .send()
         .await
         .map_err(|e| e.to_string())?;
-
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()));
     }
+    let v: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let email = v
+        .get("email_address")
+        .and_then(|x| x.as_str())
+        .map(String::from);
+    let display_name = v
+        .get("display_name")
+        .and_then(|x| x.as_str())
+        .map(String::from)
+        .or_else(|| {
+            v.get("full_name")
+                .and_then(|x| x.as_str())
+                .map(String::from)
+        });
+    let memberships = v
+        .get("memberships")
+        .and_then(|x| x.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| {
+                    let org = m.get("organization")?;
+                    // Only keep orgs with the `chat` capability — these are the
+                    // claude.ai workspaces the web UI surfaces. API-only orgs
+                    // (`capabilities: ["api"]`, console.anthropic.com) appear
+                    // in memberships but the /organizations/{id}/usage endpoint
+                    // rejects them with 403.
+                    let has_chat = org
+                        .get("capabilities")
+                        .and_then(|c| c.as_array())
+                        .map(|a| a.iter().any(|c| c.as_str() == Some("chat")))
+                        .unwrap_or(false);
+                    if !has_chat {
+                        return None;
+                    }
+                    let seat_tier = m.get("seat_tier").and_then(|v| v.as_str());
+                    Some(OrgMembership {
+                        uuid: org.get("uuid")?.as_str()?.to_string(),
+                        name: org
+                            .get("name")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        plan: infer_plan(org, seat_tier),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(AccountInfo {
+        email,
+        display_name,
+        memberships,
+    })
+}
 
-    let orgs: Vec<serde_json::Value> = resp.json().await.map_err(|e| e.to_string())?;
-    orgs.first()
-        .and_then(|o| o.get("uuid"))
-        .and_then(|u| u.as_str())
-        .map(|s| s.to_string())
-        .ok_or_else(|| "No organization found".to_string())
+pub async fn fetch_usage(
+    client: &reqwest::Client,
+    session_key: &str,
+    cf_clearance: &str,
+    org_id: &str,
+) -> Result<HashMap<String, ClaudeUsageEntry>, String> {
+    let cookie = build_cookie(session_key, cf_clearance);
+    let url = format!("https://claude.ai/api/organizations/{}/usage", org_id);
+    let resp = request_builder(client, &url, &cookie)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    let data: HashMap<String, serde_json::Value> = resp.json().await.map_err(|e| e.to_string())?;
+    let mut result = HashMap::new();
+    for (key, value) in data {
+        if key == "extra_usage" {
+            if let Ok(eu) = serde_json::from_value::<ExtraUsageRaw>(value) {
+                if eu.is_enabled && eu.monthly_limit > 0.0 {
+                    let util = eu
+                        .utilization
+                        .unwrap_or(eu.used_credits / eu.monthly_limit * 100.0);
+                    result.insert(
+                        key,
+                        ClaudeUsageEntry {
+                            utilization: util,
+                            resets_at: None,
+                        },
+                    );
+                }
+            }
+            continue;
+        }
+        if let Ok(entry) = serde_json::from_value::<ClaudeUsageEntry>(value) {
+            result.insert(key, entry);
+        }
+    }
+    Ok(result)
+}
+
+#[derive(Deserialize)]
+struct ExtraUsageRaw {
+    #[serde(default)]
+    is_enabled: bool,
+    #[serde(default)]
+    monthly_limit: f64,
+    #[serde(default)]
+    used_credits: f64,
+    #[serde(default)]
+    utilization: Option<f64>,
+}
+
+/// Poll Claude usage for every (account, org) pair. Per-pair failures keep
+/// the previous cache entry; identity and org list are filled lazily from
+/// `/api/account` whenever an account has missing info.
+pub fn start_usage_poller(
+    app: tauri::AppHandle,
+    cache: ClaudeCache,
+    ttl: ClaudeTtl,
+    credentials: SharedCredentials,
+) {
+    std::thread::spawn(move || {
+        let client = reqwest::Client::new();
+        // Force a fresh /api/account call for every account on the first loop
+        // iteration so newly-added memberships (or legacy single-org accounts
+        // migrated from .claude.env) discover all orgs immediately on startup.
+        let mut force_identity_refresh = true;
+        loop {
+            let ttl_secs = ttl.0.load(Ordering::Relaxed).max(10);
+
+            // Snapshot the current account list
+            let mut accounts: Vec<ClaudeAccount> = credentials
+                .lock()
+                .map(|s| s.claude.clone())
+                .unwrap_or_default();
+
+            // Lazy identity/org fill (runs once per tick for accounts that need it).
+            // Mutates both our working snapshot AND the shared store on disk.
+            for acct in accounts.iter_mut() {
+                if acct.session_key.is_empty() || acct.cf_clearance.is_empty() {
+                    continue;
+                }
+                let needs_identity = force_identity_refresh
+                    || acct.email.is_none()
+                    || acct.display_name.is_none()
+                    || acct.orgs.is_empty()
+                    || acct.orgs.iter().any(|o| o.name.is_empty());
+                if !needs_identity {
+                    continue;
+                }
+                let info = tauri::async_runtime::block_on(fetch_account_info(
+                    &client,
+                    &acct.session_key,
+                    &acct.cf_clearance,
+                ));
+                let Ok(info) = info else { continue };
+                acct.email = info.email.clone();
+                acct.display_name = info.display_name.clone();
+                acct.orgs = info
+                    .memberships
+                    .iter()
+                    .map(|m| ClaudeOrg {
+                        uuid: m.uuid.clone(),
+                        name: m.name.clone(),
+                        plan: m.plan.clone(),
+                    })
+                    .collect();
+                if let (Ok(dir), Ok(mut store)) = (app.path().app_config_dir(), credentials.lock()) {
+                    if let Some(stored) = store.claude.iter_mut().find(|a| a.id == acct.id) {
+                        stored.email = acct.email.clone();
+                        stored.display_name = acct.display_name.clone();
+                        stored.orgs = acct.orgs.clone();
+                        let snapshot = store.clone();
+                        drop(store);
+                        let _ = crate::credentials::save_store(&dir, &snapshot);
+                        let _ = app.emit("credentials-changed", ());
+                    }
+                }
+            }
+
+            // Prune cache entries for pairs that no longer exist
+            let live_keys: HashSet<String> = accounts
+                .iter()
+                .flat_map(|a| {
+                    let aid = a.id.clone();
+                    a.orgs.iter().map(move |o| cache_key(&aid, &o.uuid))
+                })
+                .collect();
+            if let Ok(mut c) = cache.lock() {
+                c.retain(|k, _| live_keys.contains(k));
+            }
+
+            for acct in &accounts {
+                if acct.session_key.is_empty() || acct.cf_clearance.is_empty() {
+                    continue;
+                }
+                for org in &acct.orgs {
+                    if org.uuid.is_empty() {
+                        continue;
+                    }
+                    let key = cache_key(&acct.id, &org.uuid);
+                    let stale = cache
+                        .lock()
+                        .ok()
+                        .and_then(|c| {
+                            c.get(&key)
+                                .map(|(t, _)| t.elapsed() >= Duration::from_secs(ttl_secs))
+                        })
+                        .unwrap_or(true);
+                    if !stale {
+                        continue;
+                    }
+
+                    let result: Result<HashMap<String, ClaudeUsageEntry>, String> =
+                        tauri::async_runtime::block_on(fetch_usage(
+                            &client,
+                            &acct.session_key,
+                            &acct.cf_clearance,
+                            &org.uuid,
+                        ));
+                    match result {
+                        Ok(data) => {
+                            if let Ok(mut c) = cache.lock() {
+                                c.insert(key, (Instant::now(), data));
+                            }
+                        }
+                        Err(e) => eprintln!(
+                            "Claude usage poll failed for {}/{}: {}",
+                            acct.id, org.uuid, e
+                        ),
+                    }
+                }
+            }
+
+            force_identity_refresh = false;
+            std::thread::sleep(Duration::from_secs(5));
+        }
+    });
 }
 
 // ── Claude Code JSONL usage (ccusage approach) ──
@@ -212,7 +387,6 @@ pub struct ClaudeCodeStats {
     pub total_cost: f64,
 }
 
-/// Return directories that may contain Claude Code JSONL conversation logs.
 fn jsonl_project_dirs() -> Vec<PathBuf> {
     let mut result = Vec::new();
     if let Some(home) = dirs::home_dir() {
@@ -230,20 +404,17 @@ fn jsonl_project_dirs() -> Vec<PathBuf> {
     result
 }
 
-/// Check whether an ISO-8601 timestamp falls on today (local time).
 fn is_today(timestamp: &str) -> bool {
     let today = chrono::Local::now().date_naive();
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
         return dt.with_timezone(&chrono::Local).date_naive() == today;
     }
-    // Fallback: compare date prefix
     let today_str = today.format("%Y-%m-%d").to_string();
     timestamp.starts_with(&today_str)
 }
 
 fn read_today_stats() -> ClaudeCodeStats {
     let today_naive = chrono::Local::now().date_naive();
-
     let mut stats = ClaudeCodeStats {
         input_tokens: 0,
         output_tokens: 0,
@@ -252,7 +423,6 @@ fn read_today_stats() -> ClaudeCodeStats {
         total_tokens: 0,
         total_cost: 0.0,
     };
-
     let mut seen = HashSet::new();
 
     for dir in jsonl_project_dirs() {
@@ -260,14 +430,11 @@ fn read_today_stats() -> ClaudeCodeStats {
             Some(p) => p.to_string(),
             None => continue,
         };
-
         let entries = match glob::glob(&pattern) {
             Ok(e) => e,
             Err(_) => continue,
         };
-
         for path in entries.flatten() {
-            // Skip files not modified today
             if let Ok(meta) = path.metadata() {
                 if let Ok(modified) = meta.modified() {
                     let modified: chrono::DateTime<chrono::Local> = modified.into();
@@ -276,12 +443,10 @@ fn read_today_stats() -> ClaudeCodeStats {
                     }
                 }
             }
-
             let file = match fs::File::open(&path) {
                 Ok(f) => f,
                 Err(_) => continue,
             };
-
             for line in std::io::BufReader::new(file).lines() {
                 let line = match line {
                     Ok(l) => l,
@@ -290,26 +455,20 @@ fn read_today_stats() -> ClaudeCodeStats {
                 if line.trim().is_empty() {
                     continue;
                 }
-
                 let entry: JsonlEntry = match serde_json::from_str(&line) {
                     Ok(e) => e,
                     Err(_) => continue,
                 };
-
-                // Filter by today
                 match entry.timestamp.as_deref() {
                     Some(ts) if is_today(ts) => {}
                     _ => continue,
                 }
-
-                // Deduplicate by message id
                 if let Some(ref msg) = entry.message {
                     if let Some(ref id) = msg.id {
                         if !seen.insert(id.clone()) {
                             continue;
                         }
                     }
-
                     if let Some(ref usage) = msg.usage {
                         stats.input_tokens += usage.input_tokens;
                         stats.output_tokens += usage.output_tokens;
@@ -317,28 +476,21 @@ fn read_today_stats() -> ClaudeCodeStats {
                         stats.cache_read_tokens += usage.cache_read_input_tokens;
                     }
                 }
-
                 if let Some(cost) = entry.cost_usd {
                     stats.total_cost += cost;
                 }
             }
         }
     }
-
     stats.total_tokens =
         stats.input_tokens + stats.output_tokens + stats.cache_creation_tokens + stats.cache_read_tokens;
-
     stats
 }
 
-/// Watch Claude Code JSONL directories for changes and emit stats to the frontend.
-/// Also re-emits periodically (every 30s) to handle frontend reloads.
 pub fn start_watching_stats(app: tauri::AppHandle, shared_stats: SharedClaudeCodeStats) {
     std::thread::spawn(move || {
         let dirs = jsonl_project_dirs();
-
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
-
         let mut watcher = match notify::recommended_watcher(tx) {
             Ok(w) => w,
             Err(e) => {
@@ -346,28 +498,21 @@ pub fn start_watching_stats(app: tauri::AppHandle, shared_stats: SharedClaudeCod
                 return;
             }
         };
-
         for dir in &dirs {
             if dir.exists() {
                 let _ = watcher.watch(dir, RecursiveMode::Recursive);
             }
         }
-
         let poll_interval = std::time::Duration::from_secs(30);
         let debounce = std::time::Duration::from_secs(2);
-
         loop {
-            // Emit current stats
             let stats = read_today_stats();
             if let Ok(mut lock) = shared_stats.lock() {
                 *lock = Some(stats.clone());
             }
             let _ = app.emit("claude-code-stats-changed", stats);
-
-            // Wait for file change or timeout for periodic refresh
             match rx.recv_timeout(poll_interval) {
                 Ok(_) => {
-                    // File changed — drain burst then debounce
                     std::thread::sleep(debounce);
                     while rx.try_recv().is_ok() {}
                 }
@@ -376,107 +521,4 @@ pub fn start_watching_stats(app: tauri::AppHandle, shared_stats: SharedClaudeCod
             }
         }
     });
-}
-
-/// Poll the Claude usage API from a background thread so the cache stays
-/// fresh even when the WebView is frozen/blanked (macOS WKWebView issue).
-/// Refetches only when the cache is older than the configured TTL.
-pub fn start_usage_poller(app: tauri::AppHandle, cache: ClaudeCache, ttl: ClaudeTtl) {
-    std::thread::spawn(move || {
-        let client = reqwest::Client::new();
-        loop {
-            let ttl_secs = ttl.0.load(Ordering::Relaxed).max(10);
-
-            let stale = match cache.lock() {
-                Ok(c) => c
-                    .as_ref()
-                    .map(|(t, _)| t.elapsed() >= Duration::from_secs(ttl_secs))
-                    .unwrap_or(true),
-                Err(_) => false,
-            };
-
-            if stale {
-                if let Ok(dir) = app.path().app_config_dir() {
-                    if let Some(mut creds) = load_credentials(&dir) {
-                        if !creds.session_key.is_empty() && !creds.cf_clearance.is_empty() {
-                            let result: Result<HashMap<String, ClaudeUsageEntry>, String> =
-                                tauri::async_runtime::block_on(async {
-                                    if creds.org_id.is_empty() {
-                                        creds.org_id = fetch_org_id(&client, &creds).await?;
-                                        save_credentials(&dir, &creds);
-                                    }
-                                    fetch_usage(&client, &creds, &creds.org_id).await
-                                });
-                            match result {
-                                Ok(data) => {
-                                    if let Ok(mut c) = cache.lock() {
-                                        *c = Some((Instant::now(), data));
-                                    }
-                                }
-                                Err(e) => eprintln!("Claude usage poll failed: {}", e),
-                            }
-                        }
-                    }
-                }
-            }
-
-            std::thread::sleep(Duration::from_secs(5));
-        }
-    });
-}
-
-#[derive(Deserialize)]
-struct ExtraUsageRaw {
-    #[serde(default)]
-    is_enabled: bool,
-    #[serde(default)]
-    monthly_limit: f64,
-    #[serde(default)]
-    used_credits: f64,
-    #[serde(default)]
-    utilization: Option<f64>,
-}
-
-pub async fn fetch_usage(
-    client: &reqwest::Client,
-    creds: &ClaudeCredentials,
-    org_id: &str,
-) -> Result<HashMap<String, ClaudeUsageEntry>, String> {
-    let cookie = build_cookie(creds);
-    let url = format!("https://claude.ai/api/organizations/{}/usage", org_id);
-    let resp = request_builder(client, &url, &cookie)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if !resp.status().is_success() {
-        return Err(format!("HTTP {}", resp.status()));
-    }
-
-    let data: HashMap<String, serde_json::Value> = resp.json().await.map_err(|e| e.to_string())?;
-
-    let mut result = HashMap::new();
-    for (key, value) in data {
-        if key == "extra_usage" {
-            if let Ok(eu) = serde_json::from_value::<ExtraUsageRaw>(value) {
-                if eu.is_enabled && eu.monthly_limit > 0.0 {
-                    let util = eu
-                        .utilization
-                        .unwrap_or(eu.used_credits / eu.monthly_limit * 100.0);
-                    result.insert(
-                        key,
-                        ClaudeUsageEntry {
-                            utilization: util,
-                            resets_at: None,
-                        },
-                    );
-                }
-            }
-            continue;
-        }
-        if let Ok(entry) = serde_json::from_value::<ClaudeUsageEntry>(value) {
-            result.insert(key, entry);
-        }
-    }
-    Ok(result)
 }

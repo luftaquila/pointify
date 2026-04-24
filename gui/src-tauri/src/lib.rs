@@ -1,5 +1,6 @@
 mod claude;
 mod codex;
+mod credentials;
 mod flasher;
 mod monitor;
 mod serial_loop;
@@ -7,6 +8,7 @@ mod serial_loop;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -23,8 +25,9 @@ use tauri::{
 use nusb::MaybeFuture;
 use tauri_plugin_autostart::ManagerExt;
 
-use claude::{ClaudeCache, ClaudeTtl, ClaudeUsageEntry, SharedClaudeCodeStats};
-use codex::{CodexCache, CodexUsage};
+use claude::{AccountInfo, ClaudeCache, ClaudeTtl, ClaudeUsageEntry, SharedClaudeCodeStats};
+use codex::{CodexCache, CodexIdentity, CodexUsage};
+use credentials::{ClaudeAccount, SharedCredentials};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
 use serial_loop::{SerialConfig, SharedSerialConfig};
@@ -94,6 +97,10 @@ struct MetricOptions {
 struct GaugeConfig {
     metric_id: String,
     sub_index: String,
+    #[serde(default)]
+    account_id: Option<String>,
+    #[serde(default)]
+    org_id: Option<String>,
     max_value: Option<f64>,
     max_unit: Option<String>,
 }
@@ -212,36 +219,84 @@ fn set_claude_ttl(ttl: State<'_, ClaudeTtl>, secs: u64) {
 }
 
 #[tauri::command]
-fn open_claude_env(app: tauri::AppHandle) -> Result<(), String> {
-    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let path = claude::ensure_env_file(&dir);
-
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg("-t")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-        return Ok(());
-    }
-
-    #[allow(unreachable_code)]
-    opener::open(&path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 fn get_claude_usage(
     cache: State<'_, ClaudeCache>,
-) -> Result<Option<HashMap<String, ClaudeUsageEntry>>, String> {
+) -> Result<HashMap<String, HashMap<String, ClaudeUsageEntry>>, String> {
     let cached = cache.lock().map_err(|e| e.to_string())?;
-    Ok(cached.as_ref().map(|(_, data)| data.clone()))
+    Ok(cached
+        .iter()
+        .map(|(id, (_, data))| (id.clone(), data.clone()))
+        .collect())
 }
 
 #[tauri::command]
 fn get_codex_usage(cache: State<'_, CodexCache>) -> Result<Option<CodexUsage>, String> {
     let cached = cache.lock().map_err(|e| e.to_string())?;
     Ok(cached.as_ref().map(|(_, data)| data.clone()))
+}
+
+#[tauri::command]
+fn get_codex_identity() -> Option<CodexIdentity> {
+    codex::read_identity()
+}
+
+#[tauri::command]
+fn list_claude_accounts(state: State<'_, SharedCredentials>) -> Vec<ClaudeAccount> {
+    state
+        .lock()
+        .map(|s| s.claude.clone())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+async fn verify_claude_credentials(
+    session_key: String,
+    cf_clearance: String,
+) -> Result<AccountInfo, String> {
+    let client = reqwest::Client::new();
+    claude::fetch_account_info(&client, &session_key, &cf_clearance).await
+}
+
+#[tauri::command]
+fn save_claude_account(
+    app: tauri::AppHandle,
+    state: State<'_, SharedCredentials>,
+    cache: State<'_, ClaudeCache>,
+    account: ClaudeAccount,
+) -> Result<ClaudeAccount, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let saved = {
+        let mut store = state.lock().map_err(|e| e.to_string())?;
+        let saved = credentials::upsert_account(&mut store, account);
+        credentials::save_store(&dir, &store)?;
+        saved
+    };
+    // Force a refetch next tick for this account in case creds changed
+    if let Ok(mut c) = cache.lock() {
+        c.remove(&saved.id);
+    }
+    let _ = app.emit("credentials-changed", ());
+    Ok(saved)
+}
+
+#[tauri::command]
+fn delete_claude_account(
+    app: tauri::AppHandle,
+    state: State<'_, SharedCredentials>,
+    cache: State<'_, ClaudeCache>,
+    id: String,
+) -> Result<(), String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    {
+        let mut store = state.lock().map_err(|e| e.to_string())?;
+        credentials::remove_account(&mut store, &id);
+        credentials::save_store(&dir, &store)?;
+    }
+    if let Ok(mut c) = cache.lock() {
+        c.remove(&id);
+    }
+    let _ = app.emit("credentials-changed", ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -402,9 +457,20 @@ fn start_watching_serial(app: tauri::AppHandle) {
 pub fn run() {
     let shared_metrics: SharedMetrics = Arc::new(Mutex::new(None));
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
-    let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
+    // Migrate legacy .claude.env into credentials.json before loading the store
+    let config_dir_for_migrate = dirs::config_dir()
+        .map(|d| d.join("pointify"))
+        .unwrap_or_else(|| PathBuf::from("."));
+    credentials::migrate_from_env(&config_dir_for_migrate);
+
+    let claude_cache: ClaudeCache = Arc::new(Mutex::new(HashMap::new()));
     let claude_ttl = ClaudeTtl(Arc::new(AtomicU64::new(120)));
     let codex_cache: CodexCache = Arc::new(Mutex::new(None));
+    // Load and immediately rewrite so legacy `{orgId, orgName, label}` shapes
+    // get normalized to the current multi-org schema on disk.
+    let loaded_credentials = credentials::load_store(&config_dir_for_migrate);
+    let _ = credentials::save_store(&config_dir_for_migrate, &loaded_credentials);
+    let shared_credentials: SharedCredentials = Arc::new(Mutex::new(loaded_credentials));
     let shared_serial: SharedSerial = Arc::new(Mutex::new(None));
     let shared_claude_code_stats: SharedClaudeCodeStats = Arc::new(Mutex::new(None));
     let shared_serial_config: SharedSerialConfig = Arc::new(Mutex::new(SerialConfig::default()));
@@ -421,6 +487,7 @@ pub fn run() {
         .manage(claude_cache.clone())
         .manage(claude_ttl.clone())
         .manage(codex_cache.clone())
+        .manage(shared_credentials.clone())
         .manage(shared_serial.clone())
         .manage(shared_claude_code_stats.clone())
         .manage(shared_serial_config.clone())
@@ -437,10 +504,14 @@ pub fn run() {
             is_in_bootloader,
             load_config,
             save_config,
-            open_claude_env,
             set_claude_ttl,
             get_claude_usage,
             get_codex_usage,
+            get_codex_identity,
+            list_claude_accounts,
+            verify_claude_credentials,
+            save_claude_account,
+            delete_claude_account,
             get_version,
             get_firmware_version,
             heartbeat,
@@ -524,16 +595,13 @@ pub fn run() {
             // Start hardware monitoring
             monitor::start_monitoring(shared_metrics.clone(), shared_interval);
 
-            // Start .claude.env file watcher
-            let claude_cache_watch: ClaudeCache = app.state::<ClaudeCache>().inner().clone();
-            claude::start_watching(app.handle().clone(), claude_cache_watch);
-
             // Poll Claude usage API in background so the cache stays fresh
             // even when the WebView is frozen (macOS WKWebView blank-screen)
             claude::start_usage_poller(
                 app.handle().clone(),
                 claude_cache.clone(),
                 claude_ttl.clone(),
+                shared_credentials.clone(),
             );
 
             // Start ~/.claude/stats-cache.json file watcher

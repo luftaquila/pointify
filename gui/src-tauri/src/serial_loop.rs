@@ -30,6 +30,10 @@ pub struct SerialConfig {
 pub struct GaugeEntry {
     pub metric_id: String,
     pub sub_index: String,
+    #[serde(default)]
+    pub account_id: Option<String>,
+    #[serde(default)]
+    pub org_id: Option<String>,
     pub max_value: Option<f64>,
     pub max_unit: Option<String>,
 }
@@ -121,15 +125,37 @@ fn codex_reset_pct(reset_at: i64, total_minutes: f64) -> Option<f64> {
 
 fn extract_value(
     metrics: Option<&SystemMetrics>,
-    claude_usage: Option<&HashMap<String, ClaudeUsageEntry>>,
+    claude_usage: &HashMap<String, HashMap<String, ClaudeUsageEntry>>,
     claude_code_stats: Option<&ClaudeCodeStats>,
     codex_usage: Option<&CodexUsage>,
     metric_id: &str,
     sub_index: &str,
+    account_id: Option<&str>,
+    org_id: Option<&str>,
 ) -> Option<f64> {
+    // Claude usage is keyed by "{account_id}:{org_id}". If the exact pair is
+    // missing (deleted, still fetching, pre-multi-org config), fall back to
+    // any entry of the same account, then to any entry at all.
+    let key = match (account_id, org_id) {
+        (Some(a), Some(o)) => Some(crate::claude::cache_key(a, o)),
+        _ => None,
+    };
+    let claude_account: Option<&HashMap<String, ClaudeUsageEntry>> = key
+        .as_deref()
+        .and_then(|k| claude_usage.get(k))
+        .or_else(|| {
+            account_id.and_then(|a| {
+                let prefix = format!("{}:", a);
+                claude_usage
+                    .iter()
+                    .find(|(k, _)| k.starts_with(&prefix))
+                    .map(|(_, v)| v)
+            })
+        })
+        .or_else(|| claude_usage.values().next());
     // Claude API metrics (sub_index selects target: "Limit" or "Reset")
     let claude_api = |bucket: &str, total_min: f64| -> Option<f64> {
-        let entry = claude_usage.and_then(|u| u.get(bucket))?;
+        let entry = claude_account.and_then(|u| u.get(bucket))?;
         if sub_index == "Reset" {
             entry
                 .resets_at
@@ -154,7 +180,7 @@ fn extract_value(
         "claude_sonnet_7d" => return claude_api("seven_day_sonnet", 7.0 * 24.0 * 60.0),
         "claude_design_7d" => return claude_api("seven_day_omelette", 7.0 * 24.0 * 60.0),
         "claude_extra" => {
-            return claude_usage
+            return claude_account
                 .and_then(|u| u.get("extra_usage"))
                 .map(|e| e.utilization);
         }
@@ -406,10 +432,15 @@ pub fn start_serial_loop(
 
                 let sys_metrics = metrics.lock().ok().and_then(|l| l.clone());
 
-                let claude_data: Option<HashMap<String, ClaudeUsageEntry>> = claude_cache
-                    .lock()
-                    .ok()
-                    .and_then(|l| l.as_ref().map(|(_, data)| data.clone()));
+                let claude_data: HashMap<String, HashMap<String, ClaudeUsageEntry>> =
+                    claude_cache
+                        .lock()
+                        .map(|l| {
+                            l.iter()
+                                .map(|(id, (_, data))| (id.clone(), data.clone()))
+                                .collect()
+                        })
+                        .unwrap_or_default();
 
                 let code_stats: Option<ClaudeCodeStats> =
                     claude_code_stats.lock().ok().and_then(|l| l.clone());
@@ -423,11 +454,13 @@ pub fn start_serial_loop(
                     if let Some(gauge) = cfg.gauges.get(i) {
                         let value = extract_value(
                             sys_metrics.as_ref(),
-                            claude_data.as_ref(),
+                            &claude_data,
                             code_stats.as_ref(),
                             codex_data.as_ref(),
                             &gauge.metric_id,
                             &gauge.sub_index,
+                            gauge.account_id.as_deref(),
+                            gauge.org_id.as_deref(),
                         );
                         let max = effective_max(gauge);
                         let upper = if cfg.overshoot {
