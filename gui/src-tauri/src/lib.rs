@@ -1,4 +1,5 @@
 mod claude;
+mod codex;
 mod flasher;
 mod monitor;
 mod serial_loop;
@@ -23,6 +24,7 @@ use nusb::MaybeFuture;
 use tauri_plugin_autostart::ManagerExt;
 
 use claude::{ClaudeCache, ClaudeTtl, ClaudeUsageEntry, SharedClaudeCodeStats};
+use codex::{CodexCache, CodexUsage};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
 use serial_loop::{SerialConfig, SharedSerialConfig};
@@ -237,6 +239,12 @@ fn get_claude_usage(
 }
 
 #[tauri::command]
+fn get_codex_usage(cache: State<'_, CodexCache>) -> Result<Option<CodexUsage>, String> {
+    let cached = cache.lock().map_err(|e| e.to_string())?;
+    Ok(cached.as_ref().map(|(_, data)| data.clone()))
+}
+
+#[tauri::command]
 fn open_serial_port(port: String, serial: State<SharedSerial>) -> Result<(), String> {
     let mut lock = serial.lock().map_err(|e| e.to_string())?;
     if let Some(old) = lock.take() {
@@ -396,6 +404,7 @@ pub fn run() {
     let shared_interval: SharedInterval = Arc::new(AtomicU64::new(200));
     let claude_cache: ClaudeCache = Arc::new(Mutex::new(None));
     let claude_ttl = ClaudeTtl(Arc::new(AtomicU64::new(120)));
+    let codex_cache: CodexCache = Arc::new(Mutex::new(None));
     let shared_serial: SharedSerial = Arc::new(Mutex::new(None));
     let shared_claude_code_stats: SharedClaudeCodeStats = Arc::new(Mutex::new(None));
     let shared_serial_config: SharedSerialConfig = Arc::new(Mutex::new(SerialConfig::default()));
@@ -411,6 +420,7 @@ pub fn run() {
         .manage(shared_interval.clone())
         .manage(claude_cache.clone())
         .manage(claude_ttl.clone())
+        .manage(codex_cache.clone())
         .manage(shared_serial.clone())
         .manage(shared_claude_code_stats.clone())
         .manage(shared_serial_config.clone())
@@ -430,6 +440,7 @@ pub fn run() {
             open_claude_env,
             set_claude_ttl,
             get_claude_usage,
+            get_codex_usage,
             get_version,
             get_firmware_version,
             heartbeat,
@@ -528,6 +539,16 @@ pub fn run() {
             // Start ~/.claude/stats-cache.json file watcher
             claude::start_watching_stats(app.handle().clone(), shared_claude_code_stats.clone());
 
+            // Watch ~/.codex/auth.json so Codex CLI token refreshes invalidate the cache
+            codex::start_watching(app.handle().clone(), codex_cache.clone());
+
+            // Poll Codex wham/usage in background, sharing the Claude refresh TTL
+            codex::start_usage_poller(
+                app.handle().clone(),
+                codex_cache.clone(),
+                claude_ttl.clone(),
+            );
+
             // Start backend serial loop (independent of WebView throttling)
             serial_loop::start_serial_loop(
                 shared_metrics,
@@ -535,6 +556,7 @@ pub fn run() {
                 shared_serial_config,
                 claude_cache,
                 shared_claude_code_stats,
+                codex_cache,
             );
 
             Ok(())

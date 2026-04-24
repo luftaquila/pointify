@@ -676,7 +676,7 @@
         </div>
 
         <div class="sidebar-section">
-          <h2>Claude</h2>
+          <h2>Usage</h2>
           <div class="setting-row">
             <span>Refresh</span>
             <select id="claude-refresh-select">
@@ -950,6 +950,9 @@
         { id: "claude_design_7d", label: "Claude Design 7d", unit: "%", sub: ["Limit", "Reset"] },
         { id: "claude_extra", label: "Claude Extra Usage", unit: "%", sub: false },
         { sep: true },
+        { id: "codex_5h", label: "Codex 5h", unit: "%", sub: ["Limit", "Reset"] },
+        { id: "codex_7d", label: "Codex 7d", unit: "%", sub: ["Limit", "Reset"] },
+        { sep: true },
         {
           id: "claude_code",
           label: "Claude Code Today",
@@ -972,6 +975,7 @@
       let metricOptions = null;
       let claudeUsage = null;
       let claudeCodeStats = null;
+      let codexUsage = null;
       let voltage = "3";
       let rows = 1;
       let cols = 3;
@@ -1236,10 +1240,21 @@
         return Math.max(0, Math.min(100, (1 - remaining / totalMin) * 100));
       }
 
+      function codexResetPct(resetAt, totalMin) {
+        if (!resetAt) return null;
+        const remaining = (resetAt * 1000 - Date.now()) / 60000;
+        return Math.max(0, Math.min(100, (1 - remaining / totalMin) * 100));
+      }
+
       // ── Extract value ──
       function claudeApiValue(bucket, si, totalMin) {
         if (si === "Reset") return claudeResetPct(bucket?.resets_at, totalMin);
         return bucket?.utilization ?? null;
+      }
+      function codexApiValue(w, si, totalMin) {
+        if (!w) return null;
+        if (si === "Reset") return codexResetPct(w.reset_at, totalMin);
+        return w.used_percent ?? null;
       }
       function extractValue(m, id, si) {
         // Claude metrics (separate data source)
@@ -1266,6 +1281,10 @@
               case "Cost": return claudeCodeStats.total_cost;
               default: return null;
             }
+          case "codex_5h":
+            return codexApiValue(codexUsage?.primary, si, 5 * 60);
+          case "codex_7d":
+            return codexApiValue(codexUsage?.secondary, si, 7 * 24 * 60);
         }
         // System metrics
         if (!m) return null;
@@ -1437,6 +1456,23 @@
         claudeFetchInFlight = false;
       }
 
+      function needsCodexApi() {
+        for (let i = 0; i < gaugeCount; i++) {
+          if (gaugeStates[i].metricId.startsWith("codex_")) return true;
+        }
+        return false;
+      }
+
+      let codexFetchInFlight = false;
+      async function fetchCodexUsage() {
+        if (codexFetchInFlight || !needsCodexApi()) return;
+        codexFetchInFlight = true;
+        try {
+          codexUsage = await invoke("get_codex_usage");
+        } catch { /* keep previous codexUsage on error */ }
+        codexFetchInFlight = false;
+      }
+
       // ── UI-only polling (serial data is sent by the Rust backend) ──
       let pollingTimer = null;
 
@@ -1444,6 +1480,7 @@
         try {
           const metrics = await invoke("get_metrics");
           fetchClaudeUsage();
+          fetchCodexUsage();
           for (let i = 0; i < gaugeCount; i++) {
             updateGauge(i, metrics);
           }
@@ -1866,6 +1903,9 @@
       });
       window.__TAURI__.event.listen("claude-code-stats-changed", (e) => {
         claudeCodeStats = e.payload;
+      });
+      window.__TAURI__.event.listen("codex-auth-changed", () => {
+        codexUsage = null;
       });
 
       // ── Recover from blank screen (macOS WKWebView) ──

@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 
 use crate::claude::{ClaudeCache, ClaudeCodeStats, ClaudeUsageEntry, SharedClaudeCodeStats};
+use crate::codex::{CodexCache, CodexUsage};
 use crate::monitor::types::SystemMetrics;
 use crate::monitor::SharedMetrics;
 use crate::SharedSerial;
@@ -86,6 +87,8 @@ fn is_percentage_metric(id: &str) -> bool {
             | "claude_sonnet_7d"
             | "claude_design_7d"
             | "claude_extra"
+            | "codex_5h"
+            | "codex_7d"
             | "disk_usage"
     )
 }
@@ -110,10 +113,17 @@ fn claude_reset_pct(resets_at: &str, total_minutes: f64) -> Option<f64> {
     Some(pct.clamp(0.0, 100.0))
 }
 
+fn codex_reset_pct(reset_at: i64, total_minutes: f64) -> Option<f64> {
+    let remaining = (reset_at - chrono::Utc::now().timestamp()) as f64 / 60.0;
+    let pct: f64 = (1.0 - remaining / total_minutes) * 100.0;
+    Some(pct.clamp(0.0, 100.0))
+}
+
 fn extract_value(
     metrics: Option<&SystemMetrics>,
     claude_usage: Option<&HashMap<String, ClaudeUsageEntry>>,
     claude_code_stats: Option<&ClaudeCodeStats>,
+    codex_usage: Option<&CodexUsage>,
     metric_id: &str,
     sub_index: &str,
 ) -> Option<f64> {
@@ -129,6 +139,15 @@ fn extract_value(
             Some(entry.utilization)
         }
     };
+    let codex_api =
+        |w: Option<&crate::codex::CodexUsageWindow>, total_min: f64| -> Option<f64> {
+            let w = w?;
+            if sub_index == "Reset" {
+                codex_reset_pct(w.reset_at, total_min)
+            } else {
+                Some(w.used_percent)
+            }
+        };
     match metric_id {
         "claude_5h" => return claude_api("five_hour", 5.0 * 60.0),
         "claude_7d" => return claude_api("seven_day", 7.0 * 24.0 * 60.0),
@@ -150,6 +169,15 @@ fn extract_value(
                 "Cost" => Some(s.total_cost),
                 _ => None,
             });
+        }
+        "codex_5h" => {
+            return codex_api(codex_usage.and_then(|u| u.primary.as_ref()), 5.0 * 60.0);
+        }
+        "codex_7d" => {
+            return codex_api(
+                codex_usage.and_then(|u| u.secondary.as_ref()),
+                7.0 * 24.0 * 60.0,
+            );
         }
         _ => {}
     }
@@ -332,6 +360,7 @@ pub fn start_serial_loop(
     config: SharedSerialConfig,
     claude_cache: ClaudeCache,
     claude_code_stats: SharedClaudeCodeStats,
+    codex_cache: CodexCache,
 ) {
     thread::spawn(move || {
         let mut current_pct = [0.0f64; 8];
@@ -385,12 +414,18 @@ pub fn start_serial_loop(
                 let code_stats: Option<ClaudeCodeStats> =
                     claude_code_stats.lock().ok().and_then(|l| l.clone());
 
+                let codex_data: Option<CodexUsage> = codex_cache
+                    .lock()
+                    .ok()
+                    .and_then(|l| l.as_ref().map(|(_, data)| data.clone()));
+
                 for i in 0..cfg.gauge_count {
                     if let Some(gauge) = cfg.gauges.get(i) {
                         let value = extract_value(
                             sys_metrics.as_ref(),
                             claude_data.as_ref(),
                             code_stats.as_ref(),
+                            codex_data.as_ref(),
                             &gauge.metric_id,
                             &gauge.sub_index,
                         );
