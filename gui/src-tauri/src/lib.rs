@@ -76,7 +76,10 @@ fn start_heartbeat_watchdog(app: tauri::AppHandle) {
                 if let Some(window) = app.get_webview_window("main") {
                     eprintln!("Heartbeat stale ({}ms), reloading WebView", age);
                     LAST_HEARTBEAT_MS.store(now_ms(), Ordering::Relaxed);
-                    let _ = window.eval("window.location.reload()");
+                    // Native reload via wry dispatcher — works even when the
+                    // WebContent process has died, which is exactly the case
+                    // where window.eval(...) silently no-ops.
+                    let _ = window.reload();
                 }
             }
         }
