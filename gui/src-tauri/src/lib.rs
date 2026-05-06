@@ -26,7 +26,7 @@ use nusb::MaybeFuture;
 use tauri_plugin_autostart::ManagerExt;
 
 use claude::{AccountInfo, ClaudeCache, ClaudeTtl, ClaudeUsageEntry, SharedClaudeCodeStats};
-use codex::{CodexCache, CodexIdentity, CodexUsage};
+use codex::{CodexCache, CodexIdentity, CodexStatus, CodexStatusState, CodexUsage};
 use credentials::{ClaudeAccount, SharedCredentials};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
@@ -236,6 +236,11 @@ fn get_claude_usage(
 fn get_codex_usage(cache: State<'_, CodexCache>) -> Result<Option<CodexUsage>, String> {
     let cached = cache.lock().map_err(|e| e.to_string())?;
     Ok(cached.as_ref().map(|(_, data)| data.clone()))
+}
+
+#[tauri::command]
+fn get_codex_error(status: State<'_, CodexStatusState>) -> Option<String> {
+    status.lock().ok().and_then(|s| s.error.clone())
 }
 
 #[tauri::command]
@@ -469,6 +474,7 @@ pub fn run() {
     let claude_cache: ClaudeCache = Arc::new(Mutex::new(HashMap::new()));
     let claude_ttl = ClaudeTtl(Arc::new(AtomicU64::new(120)));
     let codex_cache: CodexCache = Arc::new(Mutex::new(None));
+    let codex_status: CodexStatusState = Arc::new(Mutex::new(CodexStatus::default()));
     // Load and immediately rewrite so legacy `{orgId, orgName, label}` shapes
     // get normalized to the current multi-org schema on disk.
     let loaded_credentials = credentials::load_store(&config_dir_for_migrate);
@@ -490,6 +496,7 @@ pub fn run() {
         .manage(claude_cache.clone())
         .manage(claude_ttl.clone())
         .manage(codex_cache.clone())
+        .manage(codex_status.clone())
         .manage(shared_credentials.clone())
         .manage(shared_serial.clone())
         .manage(shared_claude_code_stats.clone())
@@ -510,6 +517,7 @@ pub fn run() {
             set_claude_ttl,
             get_claude_usage,
             get_codex_usage,
+            get_codex_error,
             get_codex_identity,
             list_claude_accounts,
             verify_claude_credentials,
@@ -611,12 +619,17 @@ pub fn run() {
             claude::start_watching_stats(app.handle().clone(), shared_claude_code_stats.clone());
 
             // Watch ~/.codex/auth.json so Codex CLI token refreshes invalidate the cache
-            codex::start_watching(app.handle().clone(), codex_cache.clone());
+            codex::start_watching(
+                app.handle().clone(),
+                codex_cache.clone(),
+                codex_status.clone(),
+            );
 
             // Poll Codex wham/usage in background, sharing the Claude refresh TTL
             codex::start_usage_poller(
                 app.handle().clone(),
                 codex_cache.clone(),
+                codex_status.clone(),
                 claude_ttl.clone(),
             );
 

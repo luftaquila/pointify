@@ -523,6 +523,25 @@
     .codex-identity .row { display: flex; justify-content: space-between; margin: 2px 0; }
     .codex-identity .row .k { color: var(--muted); }
     .codex-identity.empty { color: var(--muted); font-style: italic; }
+    .section-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .section-head h3 { margin-bottom: 0; }
+    .status-chip {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(224, 80, 80, 0.15);
+      border: 1px solid #e05050;
+      color: #e05050;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .status-chip.hidden { display: none; }
 
     /* ── Gauge grid ── */
     .grid {
@@ -933,7 +952,10 @@
         </div>
 
         <div class="modal-section">
-          <h3>Codex</h3>
+          <div class="section-head">
+            <h3>Codex</h3>
+            <span id="codex-status-chip" class="status-chip hidden"></span>
+          </div>
           <div id="codex-identity-box" class="codex-identity empty">Loading…</div>
         </div>
       </div>
@@ -2175,6 +2197,10 @@
       });
       window.__TAURI__.event.listen("codex-auth-changed", () => {
         codexUsage = null;
+        reloadCodexStatusChip();
+      });
+      window.__TAURI__.event.listen("codex-usage-updated", () => {
+        reloadCodexStatusChip();
       });
 
       // ── Credentials modal ──
@@ -2193,6 +2219,25 @@
       const credAddBtn = document.getElementById("claude-account-add");
       const credErrorEl = document.getElementById("claude-form-error");
       const codexIdentityBox = document.getElementById("codex-identity-box");
+      const codexStatusChip = document.getElementById("codex-status-chip");
+
+      async function reloadCodexStatusChip() {
+        try {
+          const err = await invoke("get_codex_error");
+          if (err) {
+            // 401/Unauthorized → Expired (most common case: stale access_token)
+            const isAuth = /401|unauthorized/i.test(err);
+            codexStatusChip.textContent = isAuth ? "Expired" : "Error";
+            codexStatusChip.title = err;
+            codexStatusChip.classList.remove("hidden");
+          } else {
+            codexStatusChip.classList.add("hidden");
+            codexStatusChip.removeAttribute("title");
+          }
+        } catch {
+          codexStatusChip.classList.add("hidden");
+        }
+      }
 
       // Orgs auto-named after the signed-in email are Claude's default
       // "personal workspace" — show as "(Personal)" instead of repeating the email.
@@ -2438,7 +2483,7 @@
       async function openCredentialsModal() {
         credModal.classList.remove("hidden");
         closeForm();
-        await Promise.all([reloadClaudeAccounts(), reloadCodexIdentity()]);
+        await Promise.all([reloadClaudeAccounts(), reloadCodexIdentity(), reloadCodexStatusChip()]);
       }
 
       function closeCredentialsModal() {

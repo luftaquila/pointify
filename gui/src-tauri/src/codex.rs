@@ -31,6 +31,17 @@ pub struct CodexUsage {
 
 pub type CodexCache = Arc<Mutex<Option<(Instant, CodexUsage)>>>;
 
+#[derive(Default)]
+pub struct CodexStatus {
+    /// When the poller last attempted a fetch (success or failure).
+    /// Used to honor TTL on failures so we don't spam the endpoint.
+    pub last_attempt: Option<Instant>,
+    /// Most recent fetch error, cleared on success.
+    pub error: Option<String>,
+}
+
+pub type CodexStatusState = Arc<Mutex<CodexStatus>>;
+
 fn auth_path() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".codex").join("auth.json"))
 }
@@ -114,7 +125,7 @@ pub async fn fetch_usage(client: &reqwest::Client) -> Result<CodexUsage, String>
 
 /// Watch ~/.codex/auth.json for changes (Codex CLI rewrites it on token refresh).
 /// On modification, clear the cache and emit an event so the WebView drops stale data.
-pub fn start_watching(app: tauri::AppHandle, cache: CodexCache) {
+pub fn start_watching(app: tauri::AppHandle, cache: CodexCache, status: CodexStatusState) {
     let path = match auth_path() {
         Some(p) => p,
         None => return,
@@ -154,6 +165,12 @@ pub fn start_watching(app: tauri::AppHandle, cache: CodexCache) {
                         if let Ok(mut c) = cache.lock() {
                             *c = None;
                         }
+                        // Force the poller to retry immediately on the next
+                        // tick instead of waiting out the previous TTL.
+                        if let Ok(mut s) = status.lock() {
+                            s.last_attempt = None;
+                            s.error = None;
+                        }
                         let _ = app.emit("codex-auth-changed", ());
                     }
                 }
@@ -165,21 +182,33 @@ pub fn start_watching(app: tauri::AppHandle, cache: CodexCache) {
 
 /// Poll wham/usage in a background thread. Shares the Claude refresh TTL so
 /// both integrations honor the same "Refresh" dropdown.
-pub fn start_usage_poller(app: tauri::AppHandle, cache: CodexCache, ttl: ClaudeTtl) {
+///
+/// Failures honor the same TTL as successes so an expired access_token
+/// doesn't cause us to hammer chatgpt.com every 5 seconds.
+pub fn start_usage_poller(
+    app: tauri::AppHandle,
+    cache: CodexCache,
+    status: CodexStatusState,
+    ttl: ClaudeTtl,
+) {
     std::thread::spawn(move || {
         let client = reqwest::Client::new();
+        let mut last_logged_error: Option<String> = None;
         loop {
             let ttl_secs = ttl.0.load(Ordering::Relaxed).max(10);
 
-            let stale = match cache.lock() {
-                Ok(c) => c
-                    .as_ref()
-                    .map(|(t, _)| t.elapsed() >= Duration::from_secs(ttl_secs))
+            let due = match status.lock() {
+                Ok(s) => s
+                    .last_attempt
+                    .map(|t| t.elapsed() >= Duration::from_secs(ttl_secs))
                     .unwrap_or(true),
                 Err(_) => false,
             };
 
-            if stale {
+            if due {
+                if let Ok(mut s) = status.lock() {
+                    s.last_attempt = Some(Instant::now());
+                }
                 let result: Result<CodexUsage, String> =
                     tauri::async_runtime::block_on(fetch_usage(&client));
                 match result {
@@ -187,9 +216,27 @@ pub fn start_usage_poller(app: tauri::AppHandle, cache: CodexCache, ttl: ClaudeT
                         if let Ok(mut c) = cache.lock() {
                             *c = Some((Instant::now(), data));
                         }
+                        if let Ok(mut s) = status.lock() {
+                            s.error = None;
+                        }
+                        if last_logged_error.is_some() {
+                            eprintln!("Codex usage poll recovered");
+                            last_logged_error = None;
+                        }
                         let _ = app.emit("codex-usage-updated", ());
                     }
-                    Err(e) => eprintln!("Codex usage poll failed: {}", e),
+                    Err(e) => {
+                        // Only log when the error message changes — avoids
+                        // the per-tick "401 Unauthorized" spam loop.
+                        if last_logged_error.as_deref() != Some(e.as_str()) {
+                            eprintln!("Codex usage poll failed: {}", e);
+                            last_logged_error = Some(e.clone());
+                        }
+                        if let Ok(mut s) = status.lock() {
+                            s.error = Some(e);
+                        }
+                        let _ = app.emit("codex-usage-updated", ());
+                    }
                 }
             }
 
