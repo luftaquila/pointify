@@ -2241,13 +2241,33 @@
           edit.addEventListener("click", () => openFormForEdit(acc));
           const del = document.createElement("button");
           del.textContent = "Delete";
+          let armed = false;
+          let armTimer = null;
           del.addEventListener("click", async () => {
-            if (!confirm(`Delete ${accountDisplayName(acc)}?`)) return;
+            // window.confirm() is a no-op in Tauri 2's WKWebView, so use a
+            // two-click arm pattern instead.
+            if (!armed) {
+              armed = true;
+              del.textContent = "Confirm?";
+              del.style.color = "var(--accent)";
+              armTimer = setTimeout(() => {
+                armed = false;
+                del.textContent = "Delete";
+                del.style.color = "";
+              }, 3000);
+              return;
+            }
+            clearTimeout(armTimer);
             try {
               await invoke("delete_claude_account", { id: acc.id });
               await reloadClaudeAccounts();
             } catch (e) {
-              alert("Delete failed: " + e);
+              del.textContent = "Failed";
+              console.error("delete_claude_account failed:", e);
+              setTimeout(() => {
+                del.textContent = "Delete";
+                del.style.color = "";
+              }, 2000);
             }
           });
           actions.appendChild(edit);
