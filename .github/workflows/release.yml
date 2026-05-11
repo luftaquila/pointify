@@ -269,10 +269,13 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${TAG}$" | tail -1)
 
+          # Exclude the auto-bot "brew: update to X.Y.Z" commits — the previous
+          # release's bump always lands in the next range and would otherwise
+          # leak a stale version number into the changelog.
           if [ "$PREV_TAG" = "$TAG" ] || [ -z "$PREV_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"%h %s" -50)
+            COMMITS=$(git log --pretty=format:"%h %s" --invert-grep --grep="^brew:" -50)
           else
-            COMMITS=$(git log --pretty=format:"%h %s" "${PREV_TAG}..${TAG}")
+            COMMITS=$(git log --pretty=format:"%h %s" --invert-grep --grep="^brew:" "${PREV_TAG}..${TAG}")
           fi
 
           PROMPT="You are a changelog writer for an open-source project called Pointify (a retro analog gauge meter system for hardware monitoring). Given the following git commits, write a concise release changelog in markdown. Do not include an overall title. Use ### for category headings (e.g. Features, Fixes, Improvements). Use bullet points. Do not include commit hashes. Write in English. Only output the changelog, nothing else.
