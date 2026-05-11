@@ -1,18 +1,18 @@
 class Pointify < Formula
   desc "Retro analog gauge meter system for hardware monitoring"
   homepage "https://github.com/luftaquila/pointify"
-  version "2.8.0"
+  version "2.8.1"
   license "MIT"
 
   on_linux do
     on_arm do
       url "https://github.com/luftaquila/pointify/releases/download/v#{version}/pointify-linux-aarch64.AppImage"
-      sha256 "92b250a9cf343bbabc5aa7e4a9f379a7f10aca4d34d977cbc8679b99892b1773"
+      sha256 "d79b16376a5eda39021ae8e723724db0eb4ade84adbb34799a0db60b85787115"
     end
 
     on_intel do
       url "https://github.com/luftaquila/pointify/releases/download/v#{version}/pointify-linux-x86_64.AppImage"
-      sha256 "463e6a7506770265a0994ee50963a35ea605e9bfb1fb215afdc1bf314fc1c500"
+      sha256 "3afdb0bc7dae8e12e512bce4f9b38eb1c025717e99f6fc10d31c6cdb29557b9b"
     end
   end
 
