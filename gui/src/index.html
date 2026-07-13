@@ -2252,13 +2252,15 @@
       }
       function accountOrgLabel(account, org) {
         const display = accountDisplayName(account);
+        const orgName = orgDisplayName(account, org);
+        const orgLabel = org && org.plan ? `${orgName} · ${org.plan}` : orgName;
         // Disambiguate when two accounts share the same display name (e.g.
         // both "luftaquila") — tag the email only for the affected rows.
         const collisions = claudeAccounts.filter((a) => accountDisplayName(a) === display);
         if (collisions.length > 1 && account.email) {
-          return `${display} · ${account.email} (${orgDisplayName(account, org)})`;
+          return `${display} · ${account.email} (${orgLabel})`;
         }
-        return `${display} (${orgDisplayName(account, org)})`;
+        return `${display} (${orgLabel})`;
       }
 
       function renderClaudeAccounts() {

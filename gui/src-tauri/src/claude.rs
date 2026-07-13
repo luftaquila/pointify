@@ -65,18 +65,24 @@ pub struct OrgMembership {
 /// returns None so the UI stays honest instead of guessing.
 ///
 /// Verified signals:
+///   - `membership.seat_tier == "team_standard"` → Team Standard seat
 ///   - `membership.seat_tier == "team_tier_1"` → Team Premium seat
+///   - `organization.rate_limit_tier == "default_claude_max_20x"` → Max 20x
 ///   - org `capabilities` includes `claude_pro` → Pro
 ///   - org `capabilities == ["chat"]` with no seat → Free
 fn infer_plan(org: &serde_json::Value, seat_tier: Option<&str>) -> Option<String> {
-    if seat_tier == Some("team_tier_1") {
-        return Some("Team Premium".to_string());
+    if let Some(label) = seat_tier.and_then(plan_label_from_seat_tier) {
+        return Some(label.to_string());
     }
-    let caps: Vec<&str> = org
-        .get("capabilities")
-        .and_then(|c| c.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
-        .unwrap_or_default();
+
+    if let Some(label) = org_rate_limit_tier(org).and_then(plan_label_from_rate_limit_tier) {
+        return Some(label.to_string());
+    }
+
+    let caps = org_capabilities(org);
+    if caps.contains(&"claude_max") {
+        return Some("Max".to_string());
+    }
     if caps.contains(&"claude_pro") {
         return Some("Pro".to_string());
     }
@@ -84,6 +90,87 @@ fn infer_plan(org: &serde_json::Value, seat_tier: Option<&str>) -> Option<String
         return Some("Free".to_string());
     }
     None
+}
+
+fn plan_label_from_seat_tier(seat_tier: &str) -> Option<&'static str> {
+    match seat_tier {
+        "team_standard" => Some("Team Standard"),
+        "team_tier_1" => Some("Team Premium"),
+        _ => None,
+    }
+}
+
+fn plan_label_from_rate_limit_tier(rate_limit_tier: &str) -> Option<&'static str> {
+    match rate_limit_tier {
+        "default_claude_max_20x" => Some("Max 20x"),
+        _ => None,
+    }
+}
+
+fn org_rate_limit_tier(org: &serde_json::Value) -> Option<&str> {
+    org.get("rate_limit_tier").and_then(|v| v.as_str())
+}
+
+fn org_capabilities(org: &serde_json::Value) -> Vec<&str> {
+    org.get("capabilities")
+        .and_then(|c| c.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{infer_plan, plan_label_from_rate_limit_tier, plan_label_from_seat_tier};
+    use serde_json::json;
+
+    #[test]
+    fn maps_known_account_api_seat_tiers() {
+        let cases = [
+            ("team_standard", "Team Standard"),
+            ("team_tier_1", "Team Premium"),
+        ];
+
+        for (seat_tier, label) in cases {
+            assert_eq!(plan_label_from_seat_tier(seat_tier), Some(label));
+        }
+    }
+
+    #[test]
+    fn ignores_unknown_account_api_seat_tiers() {
+        assert_eq!(plan_label_from_seat_tier("enterprise_unknown"), None);
+    }
+
+    #[test]
+    fn maps_known_account_api_rate_limit_tiers() {
+        assert_eq!(
+            plan_label_from_rate_limit_tier("default_claude_max_20x"),
+            Some("Max 20x")
+        );
+    }
+
+    #[test]
+    fn infers_plan_from_seat_tier_before_capabilities() {
+        let org = json!({ "capabilities": ["chat", "claude_pro"] });
+        assert_eq!(
+            infer_plan(&org, Some("team_standard")).as_deref(),
+            Some("Team Standard")
+        );
+    }
+
+    #[test]
+    fn infers_max_20x_from_rate_limit_tier() {
+        let org = json!({
+            "capabilities": ["claude_max", "chat"],
+            "rate_limit_tier": "default_claude_max_20x",
+        });
+        assert_eq!(infer_plan(&org, None).as_deref(), Some("Max 20x"));
+    }
+
+    #[test]
+    fn infers_pro_from_claude_pro_capability() {
+        let org = json!({ "capabilities": ["chat", "claude_pro"] });
+        assert_eq!(infer_plan(&org, None).as_deref(), Some("Pro"));
+    }
 }
 
 #[derive(Serialize, Clone)]
