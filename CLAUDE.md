@@ -30,6 +30,13 @@ cd device/firmware && cargo build --release   # build only
 cd device/firmware && cargo run --release     # build + flash via wchisp
 ```
 
+## How to release
+
+Actions → Release → Run workflow → enter the version (e.g. `2.9.0`). Never push tags manually — the workflow does everything:
+1. `bump` job commits `release: bump version to X.Y.Z` (tauri.conf.json, gui Cargo.toml/lock, brew version lines) and the builds run from that commit so bundles embed the real version
+2. after the build, the release job commits `brew: update to X.Y.Z` (artifact sha256s), tags that commit `vX.Y.Z`, and publishes the GitHub release — so both bot commits are inside the release
+3. pushes to v2 only warm the build caches (bot commits carry `[skip ci]`)
+
 ## Technical notes
 
 ### Serial protocol (GUI -> device)
