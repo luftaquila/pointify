@@ -420,9 +420,12 @@ fn get_metric_options(state: State<SharedMetrics>) -> MetricOptions {
     }
 }
 
+// Cargo.toml's version is bumped by the release workflow, so the package
+// version is the release version. The "v" prefix matches release tags —
+// the update badge compares this against the latest release_tag.
 #[tauri::command]
 fn get_version() -> &'static str {
-    env!("GIT_VERSION")
+    concat!("v", env!("CARGO_PKG_VERSION"))
 }
 
 #[tauri::command]
