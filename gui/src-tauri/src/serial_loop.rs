@@ -166,9 +166,15 @@ fn extract_value(
         }
     };
     let codex_api =
-        |w: Option<&crate::codex::CodexUsageWindow>, total_min: f64| -> Option<f64> {
+        |w: Option<&crate::codex::CodexUsageWindow>, nominal_min: f64| -> Option<f64> {
             let w = w?;
             if sub_index == "Reset" {
+                // Prefer the window's actual duration — Team plans report a
+                // weekly window in the slot Plus/Pro use for 5h.
+                let total_min = w
+                    .limit_window_seconds
+                    .map(|s| s as f64 / 60.0)
+                    .unwrap_or(nominal_min);
                 codex_reset_pct(w.reset_at, total_min)
             } else {
                 Some(w.used_percent)
@@ -197,13 +203,12 @@ fn extract_value(
             });
         }
         "codex_5h" => {
-            return codex_api(codex_usage.and_then(|u| u.primary.as_ref()), 5.0 * 60.0);
+            let min = 5.0 * 60.0;
+            return codex_api(codex_usage.and_then(|u| u.window_for(min)), min);
         }
         "codex_7d" => {
-            return codex_api(
-                codex_usage.and_then(|u| u.secondary.as_ref()),
-                7.0 * 24.0 * 60.0,
-            );
+            let min = 7.0 * 24.0 * 60.0;
+            return codex_api(codex_usage.and_then(|u| u.window_for(min)), min);
         }
         _ => {}
     }

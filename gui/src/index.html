@@ -1533,10 +1533,27 @@
         if (si === "Reset") return claudeResetPct(bucket?.resets_at, totalMin);
         return bucket?.utilization ?? null;
       }
-      function codexApiValue(w, si, totalMin) {
+      function codexApiValue(w, si, nominalMin) {
         if (!w) return null;
-        if (si === "Reset") return codexResetPct(w.reset_at, totalMin);
+        if (si === "Reset") {
+          // Prefer the window's actual duration (Team's weekly window sits in
+          // the slot Plus/Pro use for 5h).
+          const totalMin = w.limit_window_seconds != null ? w.limit_window_seconds / 60 : nominalMin;
+          return codexResetPct(w.reset_at, totalMin);
+        }
         return w.used_percent ?? null;
+      }
+      // Mirror of CodexUsage::window_for() in codex.rs — pick by duration, not slot.
+      function codexWindowFor(usage, nominalMin) {
+        if (!usage) return null;
+        const wantWeekly = nominalMin >= 24 * 60;
+        for (const w of [usage.primary, usage.secondary]) {
+          if (w && w.limit_window_seconds != null && (w.limit_window_seconds >= 86400) === wantWeekly) {
+            return w;
+          }
+        }
+        const positional = wantWeekly ? usage.secondary : usage.primary;
+        return positional && positional.limit_window_seconds == null ? positional : null;
       }
       function extractValue(m, id, si, accountId, orgId) {
         // Claude API data is keyed by "{accountId}:{orgId}". Fall back to same-account
@@ -1575,9 +1592,9 @@
               default: return null;
             }
           case "codex_5h":
-            return codexApiValue(codexUsage?.primary, si, 5 * 60);
+            return codexApiValue(codexWindowFor(codexUsage, 5 * 60), si, 5 * 60);
           case "codex_7d":
-            return codexApiValue(codexUsage?.secondary, si, 7 * 24 * 60);
+            return codexApiValue(codexWindowFor(codexUsage, 7 * 24 * 60), si, 7 * 24 * 60);
         }
         // System metrics
         if (!m) return null;
@@ -2198,9 +2215,12 @@
       window.__TAURI__.event.listen("codex-auth-changed", () => {
         codexUsage = null;
         reloadCodexStatusChip();
+        if (!credModal.classList.contains("hidden")) reloadCodexIdentity();
       });
       window.__TAURI__.event.listen("codex-usage-updated", () => {
         reloadCodexStatusChip();
+        // Plan comes from the usage payload — refresh the identity box too.
+        if (!credModal.classList.contains("hidden")) reloadCodexIdentity();
       });
 
       // ── Credentials modal ──
@@ -2452,9 +2472,12 @@
         window.dispatchEvent(new CustomEvent("pointify-accounts-changed"));
       }
 
+      let codexIdentitySeq = 0;  // drops stale async renders when reloads overlap
       async function reloadCodexIdentity() {
+        const seq = ++codexIdentitySeq;
         try {
           const id = await invoke("get_codex_identity");
+          if (seq !== codexIdentitySeq) return;
           if (!id) {
             codexIdentityBox.classList.add("empty");
             codexIdentityBox.textContent = "Codex CLI not logged in — run `codex login`.";
@@ -2467,16 +2490,33 @@
             ["Email", id.email],
             ["Plan", id.plan_type || id.planType],
           ];
-          for (const [k, v] of rows) {
-            if (!v) continue;
+          const addRow = (k, v) => {
             const r = document.createElement("div");
             r.className = "row";
             const ke = document.createElement("span"); ke.className = "k"; ke.textContent = k;
             const ve = document.createElement("span"); ve.textContent = v;
             r.appendChild(ke); r.appendChild(ve);
             codexIdentityBox.appendChild(r);
+          };
+          for (const [k, v] of rows) {
+            if (!v) continue;
+            addRow(k, v);
+          }
+          // Workspaces arrive from a network fetch — append when ready.
+          try {
+            const accounts = await invoke("get_codex_accounts");
+            if (seq !== codexIdentitySeq || !accounts || !accounts.length) return;
+            for (const a of accounts) {
+              const label = a.structure === "personal" ? "Personal" : (a.name || a.id.slice(0, 8));
+              const parts = [a.plan || "?"];
+              if (a.is_active) parts.push("active");
+              addRow(label, parts.join(" · "));
+            }
+          } catch {
+            // accounts/check failed (offline, expired token) — identity rows already shown
           }
         } catch {
+          if (seq !== codexIdentitySeq) return;
           codexIdentityBox.classList.add("empty");
           codexIdentityBox.textContent = "Unable to read Codex identity.";
         }

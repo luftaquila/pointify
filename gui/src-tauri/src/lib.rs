@@ -26,7 +26,7 @@ use nusb::MaybeFuture;
 use tauri_plugin_autostart::ManagerExt;
 
 use claude::{AccountInfo, ClaudeCache, ClaudeTtl, ClaudeUsageEntry, SharedClaudeCodeStats};
-use codex::{CodexCache, CodexIdentity, CodexStatus, CodexStatusState, CodexUsage};
+use codex::{CodexAccount, CodexCache, CodexIdentity, CodexStatus, CodexStatusState, CodexUsage};
 use credentials::{ClaudeAccount, SharedCredentials};
 use monitor::types::SystemMetrics;
 use monitor::{SharedInterval, SharedMetrics};
@@ -244,8 +244,14 @@ fn get_codex_error(status: State<'_, CodexStatusState>) -> Option<String> {
 }
 
 #[tauri::command]
-fn get_codex_identity() -> Option<CodexIdentity> {
-    codex::read_identity()
+fn get_codex_identity(cache: State<'_, CodexCache>) -> Option<CodexIdentity> {
+    codex::read_identity_with_cache(&cache)
+}
+
+#[tauri::command]
+async fn get_codex_accounts() -> Result<Vec<CodexAccount>, String> {
+    let client = reqwest::Client::new();
+    codex::fetch_accounts(&client).await
 }
 
 #[tauri::command]
@@ -519,6 +525,7 @@ pub fn run() {
             get_codex_usage,
             get_codex_error,
             get_codex_identity,
+            get_codex_accounts,
             list_claude_accounts,
             verify_claude_credentials,
             save_claude_account,
