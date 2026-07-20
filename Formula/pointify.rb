@@ -7,12 +7,12 @@ class Pointify < Formula
   on_linux do
     on_arm do
       url "https://github.com/luftaquila/pointify/releases/download/v#{version}/pointify-linux-aarch64.AppImage"
-      sha256 "d79b16376a5eda39021ae8e723724db0eb4ade84adbb34799a0db60b85787115"
+      sha256 "3b1e7152b01f3986f8e817f49f7dbbdc994a63bc37188c1d58637c51236a499b"
     end
 
     on_intel do
       url "https://github.com/luftaquila/pointify/releases/download/v#{version}/pointify-linux-x86_64.AppImage"
-      sha256 "3afdb0bc7dae8e12e512bce4f9b38eb1c025717e99f6fc10d31c6cdb29557b9b"
+      sha256 "d130de586f524e08315f9f3d17a1468f85ec510d650cc24266f5df9205978c3b"
     end
   end
 
