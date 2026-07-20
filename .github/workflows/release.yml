@@ -2,17 +2,83 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
     branches:
       - v2
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 2.9.0)'
+        required: true
 
 jobs:
+  # Release runs (workflow_dispatch): bump every version number, push the
+  # bump commit, and hand its sha to the build jobs so the artifacts embed
+  # the real version. Push runs (cache warming): just pass HEAD through.
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      ref: ${{ steps.out.outputs.ref }}
+      version: ${{ steps.out.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          fetch-depth: 0
+
+      - name: Bump versions and push
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid version: '${VERSION}' (expected X.Y.Z)" >&2
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "Tag v${VERSION} already exists" >&2
+            exit 1
+          fi
+
+          # App version — embedded into the bundles at build time, so it must
+          # be committed before the build jobs run.
+          sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" gui/src-tauri/tauri.conf.json
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" gui/src-tauri/Cargo.toml
+          sed -i "/^name = \"pointify\"$/{n;s/^version = \".*\"$/version = \"${VERSION}\"/;}" gui/src-tauri/Cargo.lock
+
+          # Brew version lines — the sha256 lines follow after the build.
+          sed -i "s/version \"[^\"]*\"/version \"${VERSION}\"/" Casks/pointify.rb Formula/pointify.rb
+
+          # No diff means a previous run already bumped (re-run after a
+          # failed build) — skip the commit and reuse HEAD.
+          if git diff --quiet; then
+            echo "Versions already at ${VERSION}, skipping bump commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -am "release: bump version to ${VERSION} [skip ci]"
+            git push origin HEAD:v2
+          fi
+
+      - name: Resolve build ref
+        id: out
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
   firmware:
+    needs: bump
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.bump.outputs.ref }}
 
       - uses: dtolnay/rust-toolchain@nightly
         with:
@@ -23,15 +89,14 @@ jobs:
         id: cache
         with:
           workspaces: device/firmware -> target
-          save-if: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
       - name: Build firmware
-        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true'
         working-directory: device/firmware
         run: cargo build --release
 
       - name: Prepare artifact
-        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true'
         run: |
           VERSION=$(sed -n 's/^version = "\([^"]*\)"/\1/p' device/firmware/Cargo.toml)
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
@@ -39,17 +104,20 @@ jobs:
           cp device/firmware/target/riscv32imc-unknown-none-elf/release/pointify-firmware "pointify-firmware-v${MAJOR}.${MINOR}.elf"
 
       - name: Upload artifacts
-        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: pointify-firmware
           path: pointify-firmware-*.elf
 
   pcb:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch'
+    needs: bump
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.bump.outputs.ref }}
 
       - name: Pull KiCad image
         run: docker pull kicad/kicad:9.0
@@ -117,10 +185,13 @@ jobs:
           path: pointify-pcb.zip
 
   housing:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch'
+    needs: bump
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.bump.outputs.ref }}
 
       - name: Install OpenSCAD Nightly
         run: |
@@ -148,6 +219,7 @@ jobs:
           path: pointify-3d.zip
 
   gui:
+    needs: bump
     strategy:
       fail-fast: false
       matrix:
@@ -180,6 +252,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.bump.outputs.ref }}
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
@@ -196,56 +270,56 @@ jobs:
         with:
           workspaces: gui/src-tauri -> target
           key: ${{ matrix.rust-target }}
-          save-if: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
       - uses: actions/setup-node@v5
         with:
           node-version: 22
 
       - name: Install frontend dependencies
-        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true'
         working-directory: gui
         run: npm install
 
       - name: Build Tauri app
-        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true'
         working-directory: gui
         run: npx tauri build --target ${{ matrix.rust-target }}
 
       - name: Rename artifacts (macOS)
-        if: matrix.platform == 'macos' && (github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true')
+        if: matrix.platform == 'macos' && (github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true')
         run: |
           mv gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/dmg/*.dmg pointify-macos-${{ matrix.arch }}.dmg
 
       - name: Rename artifacts (Windows)
-        if: matrix.platform == 'windows' && (github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true')
+        if: matrix.platform == 'windows' && (github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true')
         shell: pwsh
         run: |
           Move-Item (Get-ChildItem gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/nsis/*.exe).FullName pointify-windows-${{ matrix.arch }}.exe
 
       - name: Rename artifacts (Linux)
-        if: matrix.platform == 'linux' && (github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true')
+        if: matrix.platform == 'linux' && (github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true')
         run: |
           mv gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/deb/*.deb pointify-linux-${{ matrix.arch }}.deb
           mv gui/src-tauri/target/${{ matrix.rust-target }}/release/bundle/appimage/*.AppImage pointify-linux-${{ matrix.arch }}.AppImage
 
       - name: Upload artifacts
-        if: github.ref != 'refs/heads/v2' || steps.cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'push' || steps.cache.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: pointify-${{ matrix.platform }}-${{ matrix.arch }}
           path: pointify-*
 
   release:
-    needs: [firmware, pcb, housing, gui]
+    needs: [bump, firmware, pcb, housing, gui]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ needs.bump.outputs.ref }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v7
@@ -266,16 +340,17 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${TAG}$" | tail -1)
+          VERSION="${{ needs.bump.outputs.version }}"
+          TAG="v${VERSION}"
+          # The release tag doesn't exist yet, so the newest tag is the
+          # previous release.
+          PREV_TAG=$(git tag --sort=-v:refname | head -1)
 
-          # Exclude the auto-bot "brew: update to X.Y.Z" commits — the previous
-          # release's bump always lands in the next range and would otherwise
-          # leak a stale version number into the changelog.
-          if [ "$PREV_TAG" = "$TAG" ] || [ -z "$PREV_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"%h %s" --invert-grep --grep="^brew:" -50)
+          # Exclude the bot "release:"/"brew:" version-bump commits.
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%h %s" --invert-grep --grep="^brew:" --grep="^release:" -50)
           else
-            COMMITS=$(git log --pretty=format:"%h %s" --invert-grep --grep="^brew:" "${PREV_TAG}..${TAG}")
+            COMMITS=$(git log --pretty=format:"%h %s" --invert-grep --grep="^brew:" --grep="^release:" "${PREV_TAG}..HEAD")
           fi
 
           PROMPT="You are a changelog writer for an open-source project called Pointify (a retro analog gauge meter system for hardware monitoring). Given the following git commits, write a concise release changelog in markdown. Do not include an overall title. Use ### for category headings (e.g. Features, Fixes, Improvements). Use bullet points. Do not include commit hashes. Write in English. Only output the changelog, nothing else.
@@ -305,8 +380,10 @@ jobs:
             echo ""
             echo "$SUMMARY"
             echo ""
-            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
-            echo ""
+            if [ -n "$PREV_TAG" ]; then
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+              echo ""
+            fi
             echo "---"
             echo ""
             echo "## Install"
@@ -338,35 +415,39 @@ jobs:
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: pointify-*
-          body: ${{ steps.changelog.outputs.summary }}
-
-      - name: Update Homebrew formula and cask
+      - name: Update Homebrew sha256s and tag the release
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
+          VERSION="${{ needs.bump.outputs.version }}"
 
           SHA_MAC_ARM=$(shasum -a 256 pointify-macos-aarch64.dmg | awk '{print $1}')
           SHA_MAC_X86=$(shasum -a 256 pointify-macos-x86_64.dmg | awk '{print $1}')
           SHA_LINUX_ARM=$(shasum -a 256 pointify-linux-aarch64.AppImage | awk '{print $1}')
           SHA_LINUX_X86=$(shasum -a 256 pointify-linux-x86_64.AppImage | awk '{print $1}')
 
-          # Update Cask
-          sed -i "s/version \".*\"/version \"${VERSION}\"/" Casks/pointify.rb
-          # arm sha256 is the first occurrence, intel is the second
+          # Version lines were already bumped before the build; only the
+          # sha256 lines are new information here.
+          # Cask: arm sha256 is the first occurrence, intel is the second
           sed -i "0,/sha256 \".*\"/{s/sha256 \".*\"/sha256 \"${SHA_MAC_ARM}\"/}" Casks/pointify.rb
           sed -i "0,/sha256 \".*\"/! {0,/sha256 \".*\"/ s/sha256 \".*\"/sha256 \"${SHA_MAC_X86}\"/}" Casks/pointify.rb
 
-          # Update Formula
-          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/pointify.rb
           sed -i "0,/sha256 \".*\"/{s/sha256 \".*\"/sha256 \"${SHA_LINUX_ARM}\"/}" Formula/pointify.rb
           sed -i "0,/sha256 \".*\"/! {0,/sha256 \".*\"/ s/sha256 \".*\"/sha256 \"${SHA_LINUX_X86}\"/}" Formula/pointify.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/pointify.rb Formula/pointify.rb
-          git commit -m "brew: update to ${VERSION}"
-          git push origin HEAD:v2
+          git commit -m "brew: update to ${VERSION} [skip ci]"
+
+          # Don't drop commits pushed to v2 while the build was running.
+          git pull --rebase origin v2
+
+          # Tag the brew commit so the release contains its own brew files.
+          git tag "v${VERSION}"
+          git push origin HEAD:v2 "v${VERSION}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.bump.outputs.version }}
+          files: pointify-*
+          body: ${{ steps.changelog.outputs.summary }}
