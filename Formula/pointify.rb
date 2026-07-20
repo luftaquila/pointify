@@ -1,7 +1,7 @@
 class Pointify < Formula
   desc "Retro analog gauge meter system for hardware monitoring"
   homepage "https://github.com/luftaquila/pointify"
-  version "2.9.0"
+  version "2.9.1"
   license "MIT"
 
   on_linux do
