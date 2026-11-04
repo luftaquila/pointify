@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::BufRead;
-use std::path::PathBuf;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -464,7 +464,7 @@ struct JsonlUsage {
     cache_read_input_tokens: u64,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Default)]
 pub struct ClaudeCodeStats {
     pub input_tokens: u64,
     pub output_tokens: u64,
@@ -491,87 +491,170 @@ fn jsonl_project_dirs() -> Vec<PathBuf> {
     result
 }
 
-fn is_today(timestamp: &str) -> bool {
-    let today = chrono::Local::now().date_naive();
+fn is_on_day(timestamp: &str, day: chrono::NaiveDate) -> bool {
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-        return dt.with_timezone(&chrono::Local).date_naive() == today;
+        return dt.with_timezone(&chrono::Local).date_naive() == day;
     }
-    let today_str = today.format("%Y-%m-%d").to_string();
-    timestamp.starts_with(&today_str)
+    let day_str = day.format("%Y-%m-%d").to_string();
+    timestamp.starts_with(&day_str)
 }
 
-fn read_today_stats() -> ClaudeCodeStats {
-    let today_naive = chrono::Local::now().date_naive();
-    let mut stats = ClaudeCodeStats {
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_creation_tokens: 0,
-        cache_read_tokens: 0,
-        total_tokens: 0,
-        total_cost: 0.0,
-    };
-    let mut seen = HashSet::new();
+/// Today's Claude Code usage, kept current by reading only what was appended to
+/// each JSONL file since the previous pass. Claude Code only ever appends to
+/// these files, so a file that shrank was rewritten and everything is recounted.
+struct StatsTracker {
+    day: chrono::NaiveDate,
+    /// Bytes of each file (canonical path) already counted, always ending on a
+    /// line boundary. Canonical so a file reached through a glob and through a
+    /// watcher event, or through two symlinked project dirs, is read once.
+    offsets: HashMap<PathBuf, u64>,
+    /// Message ids already counted today; one message is logged several times.
+    seen: HashSet<String>,
+    stats: ClaudeCodeStats,
+}
 
-    for dir in jsonl_project_dirs() {
-        let pattern = match dir.join("**/*.jsonl").to_str() {
-            Some(p) => p.to_string(),
-            None => continue,
-        };
-        let entries = match glob::glob(&pattern) {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-        for path in entries.flatten() {
-            if let Ok(meta) = path.metadata() {
-                if let Ok(modified) = meta.modified() {
-                    let modified: chrono::DateTime<chrono::Local> = modified.into();
-                    if modified.date_naive() < today_naive {
-                        continue;
-                    }
-                }
+impl StatsTracker {
+    fn new(day: chrono::NaiveDate) -> Self {
+        Self {
+            day,
+            offsets: HashMap::new(),
+            seen: HashSet::new(),
+            stats: ClaudeCodeStats::default(),
+        }
+    }
+
+    /// Bring the totals up to date. `changed` lists the files to read;
+    /// `None` scans every project directory.
+    fn refresh(&mut self, changed: Option<&HashSet<PathBuf>>) {
+        let today = chrono::Local::now().date_naive();
+        let consistent = if today != self.day {
+            *self = Self::new(today);
+            self.scan_all()
+        } else {
+            match changed {
+                Some(paths) => paths
+                    .iter()
+                    .filter(|p| p.extension().is_some_and(|e| e == "jsonl"))
+                    .all(|p| self.read_new(p)),
+                None => self.scan_all(),
             }
-            let file = match fs::File::open(&path) {
-                Ok(f) => f,
+        };
+        if !consistent {
+            *self = Self::new(today);
+            self.scan_all();
+        }
+    }
+
+    /// Read every JSONL file modified today. Returns false if a file shrank.
+    fn scan_all(&mut self) -> bool {
+        for dir in jsonl_project_dirs() {
+            let pattern = match dir.join("**/*.jsonl").to_str() {
+                Some(p) => p.to_string(),
+                None => continue,
+            };
+            let entries = match glob::glob(&pattern) {
+                Ok(e) => e,
                 Err(_) => continue,
             };
-            for line in std::io::BufReader::new(file).lines() {
-                let line = match line {
-                    Ok(l) => l,
-                    Err(_) => continue,
-                };
-                if line.trim().is_empty() {
-                    continue;
-                }
-                let entry: JsonlEntry = match serde_json::from_str(&line) {
-                    Ok(e) => e,
-                    Err(_) => continue,
-                };
-                match entry.timestamp.as_deref() {
-                    Some(ts) if is_today(ts) => {}
-                    _ => continue,
-                }
-                if let Some(ref msg) = entry.message {
-                    if let Some(ref id) = msg.id {
-                        if !seen.insert(id.clone()) {
+            for path in entries.flatten() {
+                if let Ok(meta) = path.metadata() {
+                    if let Ok(modified) = meta.modified() {
+                        let modified: chrono::DateTime<chrono::Local> = modified.into();
+                        if modified.date_naive() < self.day {
                             continue;
                         }
                     }
-                    if let Some(ref usage) = msg.usage {
-                        stats.input_tokens += usage.input_tokens;
-                        stats.output_tokens += usage.output_tokens;
-                        stats.cache_creation_tokens += usage.cache_creation_input_tokens;
-                        stats.cache_read_tokens += usage.cache_read_input_tokens;
-                    }
                 }
-                if let Some(cost) = entry.cost_usd {
-                    stats.total_cost += cost;
+                if !self.read_new(&path) {
+                    return false;
                 }
             }
         }
+        true
     }
-    stats.total_tokens =
-        stats.input_tokens + stats.output_tokens + stats.cache_creation_tokens + stats.cache_read_tokens;
-    stats
+
+    /// Count the lines appended to `path` since the last read. Returns false
+    /// if the file shrank, i.e. it was rewritten and the totals are stale.
+    /// A file that can't be read (e.g. deleted) is skipped.
+    fn read_new(&mut self, path: &Path) -> bool {
+        let Ok(path) = fs::canonicalize(path) else {
+            return true;
+        };
+        let Ok(mut file) = fs::File::open(&path) else {
+            return true;
+        };
+        let Ok(len) = file.metadata().map(|m| m.len()) else {
+            return true;
+        };
+        let offset = self.offsets.get(&path).copied().unwrap_or(0);
+        if len < offset {
+            return false;
+        }
+        if len == offset {
+            return true;
+        }
+
+        let mut buf = Vec::new();
+        if file.seek(SeekFrom::Start(offset)).is_err()
+            || file.take(len - offset).read_to_end(&mut buf).is_err()
+        {
+            return true;
+        }
+
+        // Stop at the last newline: the line after it may still be being
+        // written. Take it anyway if it already parses, so a final line
+        // without a trailing newline is not lost.
+        let mut consumed = buf.iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
+        for line in buf[..consumed].split(|&b| b == b'\n') {
+            self.count_line(line);
+        }
+        let tail = &buf[consumed..];
+        if !tail.is_empty() && serde_json::from_slice::<JsonlEntry>(tail).is_ok() {
+            self.count_line(tail);
+            consumed = buf.len();
+        }
+
+        self.offsets.insert(path, offset + consumed as u64);
+        true
+    }
+
+    fn count_line(&mut self, line: &[u8]) {
+        let Ok(line) = std::str::from_utf8(line) else {
+            return;
+        };
+        if line.trim().is_empty() {
+            return;
+        }
+        let entry: JsonlEntry = match serde_json::from_str(line) {
+            Ok(e) => e,
+            Err(_) => return,
+        };
+        match entry.timestamp.as_deref() {
+            Some(ts) if is_on_day(ts, self.day) => {}
+            _ => return,
+        }
+        let stats = &mut self.stats;
+        if let Some(ref msg) = entry.message {
+            if let Some(ref id) = msg.id {
+                if !self.seen.insert(id.clone()) {
+                    return;
+                }
+            }
+            if let Some(ref usage) = msg.usage {
+                stats.input_tokens += usage.input_tokens;
+                stats.output_tokens += usage.output_tokens;
+                stats.cache_creation_tokens += usage.cache_creation_input_tokens;
+                stats.cache_read_tokens += usage.cache_read_input_tokens;
+            }
+        }
+        if let Some(cost) = entry.cost_usd {
+            stats.total_cost += cost;
+        }
+        stats.total_tokens = stats.input_tokens
+            + stats.output_tokens
+            + stats.cache_creation_tokens
+            + stats.cache_read_tokens;
+    }
 }
 
 pub fn start_watching_stats(app: tauri::AppHandle, shared_stats: SharedClaudeCodeStats) {
@@ -592,20 +675,114 @@ pub fn start_watching_stats(app: tauri::AppHandle, shared_stats: SharedClaudeCod
         }
         let poll_interval = std::time::Duration::from_secs(30);
         let debounce = std::time::Duration::from_secs(2);
+        let mut tracker = StatsTracker::new(chrono::Local::now().date_naive());
+        // Files reported by the watcher since the last pass; None = scan everything
+        let mut changed: Option<HashSet<PathBuf>> = None;
         loop {
-            let stats = read_today_stats();
+            tracker.refresh(changed.as_ref());
+            let stats = tracker.stats.clone();
             if let Ok(mut lock) = shared_stats.lock() {
                 *lock = Some(stats.clone());
             }
             let _ = app.emit("claude-code-stats-changed", stats);
-            match rx.recv_timeout(poll_interval) {
-                Ok(_) => {
+            changed = match rx.recv_timeout(poll_interval) {
+                Ok(first) => {
                     std::thread::sleep(debounce);
-                    while rx.try_recv().is_ok() {}
+                    let mut paths = HashSet::new();
+                    let mut rescan = false;
+                    for res in std::iter::once(first).chain(rx.try_iter()) {
+                        match res {
+                            Ok(event) if !event.need_rescan() => paths.extend(event.paths),
+                            // Dropped events or a watcher error: paths are incomplete
+                            _ => rescan = true,
+                        }
+                    }
+                    if rescan {
+                        None
+                    } else {
+                        Some(paths)
+                    }
                 }
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                // Quiet period: full scan in case an event was missed
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => None,
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
-            }
+            };
         }
     });
+}
+
+#[cfg(test)]
+mod stats_tests {
+    use super::*;
+    use std::io::Write;
+
+    fn entry(id: &str, day: chrono::NaiveDate, input: u64, output: u64) -> String {
+        format!(
+            r#"{{"timestamp":"{}T12:00:00","message":{{"id":"{}","usage":{{"input_tokens":{},"output_tokens":{}}}}}}}"#,
+            day.format("%Y-%m-%d"),
+            id,
+            input,
+            output
+        )
+    }
+
+    fn append(path: &Path, text: &str) {
+        let mut f = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+        f.write_all(text.as_bytes()).unwrap();
+    }
+
+    #[test]
+    fn reads_only_appended_complete_lines() {
+        // Timestamps without an offset are matched by date prefix, so the
+        // test doesn't depend on the local timezone
+        let day = chrono::NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let dir = std::env::temp_dir().join(format!("pointify-stats-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("session.jsonl");
+        let _ = fs::remove_file(&path);
+
+        let mut t = StatsTracker::new(day);
+        let other_day = day.pred_opt().unwrap();
+        append(
+            &path,
+            &format!(
+                "{}\n{}\n{}\n",
+                entry("a", day, 10, 1),
+                entry("a", day, 10, 1), // same message logged twice
+                entry("old", other_day, 1000, 1000)
+            ),
+        );
+        assert!(t.read_new(&path));
+        assert_eq!((t.stats.input_tokens, t.stats.output_tokens), (10, 1));
+
+        // A line still being written is left for the next pass
+        let line = entry("b", day, 5, 2);
+        let (head, rest) = line.split_at(20);
+        append(&path, head);
+        assert!(t.read_new(&path));
+        assert_eq!(t.stats.input_tokens, 10);
+        append(&path, &format!("{}\n", rest));
+        assert!(t.read_new(&path));
+        assert_eq!((t.stats.input_tokens, t.stats.output_tokens), (15, 3));
+        assert_eq!(t.stats.total_tokens, 18);
+
+        // Nothing new: nothing counted twice
+        assert!(t.read_new(&path));
+        assert_eq!(t.stats.input_tokens, 15);
+
+        // A final line without a newline is still counted
+        append(&path, &entry("c", day, 1, 1));
+        assert!(t.read_new(&path));
+        assert_eq!(t.stats.input_tokens, 16);
+
+        // A rewritten (shorter) file is reported so the caller recounts
+        fs::write(&path, format!("{}\n", entry("d", day, 1, 1))).unwrap();
+        assert!(!t.read_new(&path));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

@@ -10,7 +10,7 @@ use serde::Deserialize;
 use crate::claude::{ClaudeCache, ClaudeCodeStats, ClaudeUsageEntry, SharedClaudeCodeStats};
 use crate::codex::{CodexCache, CodexUsage};
 use crate::monitor::types::SystemMetrics;
-use crate::monitor::SharedMetrics;
+use crate::monitor::{MetricNeeds, SharedMetrics};
 use crate::SharedSerial;
 
 #[derive(Clone, Deserialize)]
@@ -53,6 +53,21 @@ impl Default for SerialConfig {
 }
 
 pub type SharedSerialConfig = Arc<Mutex<SerialConfig>>;
+
+/// Metric groups the monitor has to refresh on every tick for the gauges that
+/// are shown. The frontend draws the same gauges it sends here, so this covers
+/// both the device and the window.
+pub fn metric_needs(config: &SharedSerialConfig) -> MetricNeeds {
+    match config.lock() {
+        Ok(cfg) if cfg.active => MetricNeeds::from_metric_ids(
+            cfg.gauges
+                .iter()
+                .take(cfg.gauge_count)
+                .map(|g| g.metric_id.as_str()),
+        ),
+        _ => MetricNeeds::default(),
+    }
+}
 
 // Flag to signal the serial loop to send zeros once when deactivated
 static SEND_ZEROS: AtomicBool = AtomicBool::new(false);
@@ -355,7 +370,6 @@ fn extract_value(
             .iter()
             .find(|g| g.name == sub_index)
             .and_then(|g| g.power_watts),
-        "process_count" => Some(m.process_count as f64),
         _ => None,
     }
 }
