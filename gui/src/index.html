@@ -1167,6 +1167,9 @@
       let pollingMs = 200;
       let smooth = false;
       let overshoot = false;
+      // Set once init() has applied config.json. Saving earlier would write
+      // the defaults above over the user's config.
+      let configLoaded = false;
 
       // ── Gauge state ──
       // A gauge metric is account-scoped only for Claude API metrics.
@@ -2149,6 +2152,7 @@
       // ── Config save/load ──
       let saveTimer = null;
       function saveConfig() {
+        if (!configLoaded) return;
         syncSerialConfig();
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
@@ -2665,11 +2669,13 @@
             }
           }
         } catch {}
+        configLoaded = true;
 
         buildCards();
         updateGaugeVisibility();
         fetchOptions();
-        startPolling();
+        if (isActive) startPolling();
+        else syncSerialConfig();
       }
 
       let optionsRetries = 0;

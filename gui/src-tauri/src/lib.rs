@@ -180,7 +180,12 @@ fn save_config(app: tauri::AppHandle, config: Config) {
     if let Ok(dir) = app.path().app_config_dir() {
         let _ = fs::create_dir_all(&dir);
         if let Ok(json) = serde_json::to_string_pretty(&config) {
-            let _ = fs::write(dir.join("config.json"), json);
+            // Write a temp file and rename it over config.json, so a crash
+            // mid-write can't leave a truncated file that loads as defaults.
+            let tmp = dir.join("config.json.tmp");
+            if fs::write(&tmp, json).is_ok() {
+                let _ = fs::rename(&tmp, dir.join("config.json"));
+            }
         }
     }
 }
