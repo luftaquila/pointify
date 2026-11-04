@@ -1167,6 +1167,9 @@
       let pollingMs = 200;
       let smooth = false;
       let overshoot = false;
+      // Set once init() has applied config.json. Saving earlier would write
+      // the defaults above over the user's config.
+      let configLoaded = false;
 
       // ── Gauge state ──
       // A gauge metric is account-scoped only for Claude API metrics.
@@ -2149,6 +2152,7 @@
       // ── Config save/load ──
       let saveTimer = null;
       function saveConfig() {
+        if (!configLoaded) return;
         syncSerialConfig();
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
@@ -2551,6 +2555,12 @@
       const sendHeartbeat = () => invoke("heartbeat").catch(() => {});
       sendHeartbeat();
       setInterval(sendHeartbeat, 10000);
+      // The watchdog gives a freshly shown window only a short grace period,
+      // so report in as soon as the page wakes up.
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) sendHeartbeat();
+      });
+      window.addEventListener("focus", sendHeartbeat);
 
       // ── GitHub ──
       const githubLink = document.getElementById("github-link");
@@ -2665,11 +2675,13 @@
             }
           }
         } catch {}
+        configLoaded = true;
 
         buildCards();
         updateGaugeVisibility();
         fetchOptions();
-        startPolling();
+        if (isActive) startPolling();
+        else syncSerialConfig();
       }
 
       let optionsRetries = 0;

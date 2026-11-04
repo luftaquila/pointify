@@ -60,6 +60,11 @@ fn now_ms() -> u64 {
 /// Seeded at startup so the watchdog doesn't fire before the page loads.
 static LAST_HEARTBEAT_MS: AtomicU64 = AtomicU64::new(0);
 
+/// A page that has not sent a heartbeat for this long is treated as dead.
+const HEARTBEAT_STALE_MS: u64 = 60_000;
+/// How long a page gets to send a heartbeat after its window is shown.
+const SHOW_GRACE_MS: u64 = 15_000;
+
 /// Reload the WebView when JS stops sending heartbeats.
 /// After days of idle on macOS the WKWebView WebContent process can die,
 /// leaving a blank window that no amount of forceRepaint can recover —
@@ -69,18 +74,35 @@ fn start_heartbeat_watchdog(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         // Grace period before first check: let the page load
         std::thread::sleep(Duration::from_secs(30));
+        let mut was_visible = false;
         loop {
-            std::thread::sleep(Duration::from_secs(15));
+            std::thread::sleep(Duration::from_secs(5));
+            let Some(window) = app.get_webview_window("main") else {
+                continue;
+            };
+            // macOS suspends the WebContent process of a hidden window, so its
+            // heartbeats stop even though the page is alive. Only judge
+            // liveness while the window is shown.
+            if !window.is_visible().unwrap_or(false) {
+                was_visible = false;
+                continue;
+            }
+            if !was_visible {
+                // Just shown: ignore the time spent hidden, but a dead page
+                // must still be reloaded within SHOW_GRACE_MS.
+                was_visible = true;
+                let floor = now_ms().saturating_sub(HEARTBEAT_STALE_MS - SHOW_GRACE_MS);
+                LAST_HEARTBEAT_MS.fetch_max(floor, Ordering::Relaxed);
+                continue;
+            }
             let age = now_ms().saturating_sub(LAST_HEARTBEAT_MS.load(Ordering::Relaxed));
-            if age > 60_000 {
-                if let Some(window) = app.get_webview_window("main") {
-                    eprintln!("Heartbeat stale ({}ms), reloading WebView", age);
-                    LAST_HEARTBEAT_MS.store(now_ms(), Ordering::Relaxed);
-                    // Native reload via wry dispatcher — works even when the
-                    // WebContent process has died, which is exactly the case
-                    // where window.eval(...) silently no-ops.
-                    let _ = window.reload();
-                }
+            if age > HEARTBEAT_STALE_MS {
+                eprintln!("Heartbeat stale ({}ms), reloading WebView", age);
+                LAST_HEARTBEAT_MS.store(now_ms(), Ordering::Relaxed);
+                // Native reload via wry dispatcher — works even when the
+                // WebContent process has died, which is exactly the case
+                // where window.eval(...) silently no-ops.
+                let _ = window.reload();
             }
         }
     });
@@ -180,7 +202,12 @@ fn save_config(app: tauri::AppHandle, config: Config) {
     if let Ok(dir) = app.path().app_config_dir() {
         let _ = fs::create_dir_all(&dir);
         if let Ok(json) = serde_json::to_string_pretty(&config) {
-            let _ = fs::write(dir.join("config.json"), json);
+            // Write a temp file and rename it over config.json, so a crash
+            // mid-write can't leave a truncated file that loads as defaults.
+            let tmp = dir.join("config.json.tmp");
+            if fs::write(&tmp, json).is_ok() {
+                let _ = fs::rename(&tmp, dir.join("config.json"));
+            }
         }
     }
 }
