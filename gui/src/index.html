@@ -2555,6 +2555,12 @@
       const sendHeartbeat = () => invoke("heartbeat").catch(() => {});
       sendHeartbeat();
       setInterval(sendHeartbeat, 10000);
+      // The watchdog gives a freshly shown window only a short grace period,
+      // so report in as soon as the page wakes up.
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) sendHeartbeat();
+      });
+      window.addEventListener("focus", sendHeartbeat);
 
       // ── GitHub ──
       const githubLink = document.getElementById("github-link");
