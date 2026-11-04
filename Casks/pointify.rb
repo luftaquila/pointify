@@ -1,5 +1,5 @@
 cask "pointify" do
-  version "2.9.1"
+  version "2.9.2"
 
   on_arm do
     sha256 "bfcd0f7b36320a27d2f32daaccf2532fe1272b5973ae124653c0448ebecf1bea"
