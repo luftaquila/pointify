@@ -613,8 +613,11 @@ pub fn run() {
             // WebContent process can die after days of idle)
             start_heartbeat_watchdog(app.handle().clone());
 
-            // Start hardware monitoring
-            monitor::start_monitoring(shared_metrics.clone(), shared_interval);
+            // Start hardware monitoring; costly groups follow the active gauges
+            let needs_config = shared_serial_config.clone();
+            monitor::start_monitoring(shared_metrics.clone(), shared_interval, move || {
+                serial_loop::metric_needs(&needs_config)
+            });
 
             // Poll Claude usage API in background so the cache stays fresh
             // even when the WebView is frozen (macOS WKWebView blank-screen)

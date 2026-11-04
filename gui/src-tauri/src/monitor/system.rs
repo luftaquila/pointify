@@ -1,8 +1,9 @@
 use std::time::Instant;
 
-use sysinfo::{Components, Disks, Networks, System};
+use sysinfo::{Components, DiskRefreshKind, Disks, Networks, System};
 
 use super::types::*;
+use super::{is_due, MetricNeeds};
 
 #[cfg(target_os = "linux")]
 struct RaplReader {
@@ -63,6 +64,15 @@ impl RaplReader {
     }
 }
 
+/// Stamp `at` with now and return the seconds since its previous value, or 0
+/// on the first call (the rate code reports 0 for a zero interval).
+fn advance(at: &mut Option<Instant>) -> f64 {
+    let now = Instant::now();
+    let elapsed = at.map_or(0.0, |t| now.duration_since(t).as_secs_f64());
+    *at = Some(now);
+    elapsed
+}
+
 pub struct SystemMonitor {
     sys: System,
     components: Components,
@@ -72,73 +82,85 @@ pub struct SystemMonitor {
     last_net_tx: Vec<(String, u64)>,
     last_disk_read: Vec<(String, u64)>,
     last_disk_write: Vec<(String, u64)>,
-    last_update: Instant,
+    // When each group was last refreshed (None = never)
+    components_at: Option<Instant>,
+    network_at: Option<Instant>,
+    disk_io_at: Option<Instant>,
+    disk_space_at: Option<Instant>,
+    // Last computed rates, reused on ticks that skip the refresh
+    network: NetworkMetrics,
+    disk: DiskMetrics,
     #[cfg(target_os = "linux")]
     rapl: Option<RaplReader>,
 }
 
 impl SystemMonitor {
     pub fn new() -> Self {
-        let mut sys = System::new_all();
-        sys.refresh_all();
-
-        let components = Components::new_with_refreshed_list();
-        let disks = Disks::new_with_refreshed_list();
-        let networks = Networks::new_with_refreshed_list();
-
-        let last_net_rx = networks
-            .iter()
-            .map(|(name, data)| (name.to_string(), data.total_received()))
-            .collect();
-        let last_net_tx = networks
-            .iter()
-            .map(|(name, data)| (name.to_string(), data.total_transmitted()))
-            .collect();
-
-        let last_disk_read = Vec::new();
-        let last_disk_write = Vec::new();
+        // Processes are never read, so only CPU and memory are loaded
+        let mut sys = System::new();
+        sys.refresh_cpu_all();
+        sys.refresh_memory();
 
         Self {
             sys,
-            components,
-            disks,
-            networks,
-            last_net_rx,
-            last_net_tx,
-            last_disk_read,
-            last_disk_write,
-            last_update: Instant::now(),
+            components: Components::new_with_refreshed_list(),
+            disks: Disks::new_with_refreshed_list(),
+            networks: Networks::new_with_refreshed_list(),
+            last_net_rx: Vec::new(),
+            last_net_tx: Vec::new(),
+            last_disk_read: Vec::new(),
+            last_disk_write: Vec::new(),
+            components_at: None,
+            network_at: None,
+            disk_io_at: None,
+            disk_space_at: None,
+            network: NetworkMetrics { interfaces: Vec::new() },
+            disk: DiskMetrics { disks: Vec::new() },
             #[cfg(target_os = "linux")]
             rapl: RaplReader::try_new(),
         }
     }
 
+    /// CPU and memory are refreshed on every call. Temperature, network and
+    /// disk I/O are refreshed on every call only while a gauge reads them.
+    /// Disk capacity is refreshed only on the slow cadence even when a gauge
+    /// reads it: on macOS it asks the OS for purgeable space, which is slow,
+    /// and capacity barely moves anyway.
     pub fn collect(
         &mut self,
-    ) -> (
-        CpuMetrics,
-        MemoryMetrics,
-        SwapMetrics,
-        NetworkMetrics,
-        DiskMetrics,
-        u32,
-    ) {
-        let elapsed = self.last_update.elapsed().as_secs_f64();
-        self.last_update = Instant::now();
+        needs: MetricNeeds,
+    ) -> (CpuMetrics, MemoryMetrics, SwapMetrics, NetworkMetrics, DiskMetrics) {
+        self.sys.refresh_cpu_all();
+        self.sys.refresh_memory();
 
-        self.sys.refresh_all();
-        self.components.refresh(true);
-        self.disks.refresh(true);
-        self.networks.refresh(true);
+        if is_due(self.components_at, needs.cpu_temp) {
+            self.components.refresh(true);
+            self.components_at = Some(Instant::now());
+        }
+
+        if is_due(self.network_at, needs.network) {
+            let elapsed = advance(&mut self.network_at);
+            self.networks.refresh(true);
+            self.network = self.collect_network(elapsed);
+        }
+
+        let space_due = is_due(self.disk_space_at, false);
+        if space_due || needs.disk_io {
+            let mut kind = DiskRefreshKind::nothing().with_io_usage();
+            if space_due {
+                kind = kind.with_storage();
+                self.disk_space_at = Some(Instant::now());
+            }
+            let elapsed = advance(&mut self.disk_io_at);
+            self.disks.refresh_specifics(true, kind);
+            self.disk = self.collect_disk(elapsed);
+        }
 
         let cpu = self.collect_cpu();
         let memory = self.collect_memory();
         let swap = self.collect_swap();
-        let network = self.collect_network(elapsed);
-        let disk = self.collect_disk(elapsed);
-        let process_count = self.sys.processes().len() as u32;
 
-        (cpu, memory, swap, network, disk, process_count)
+        (cpu, memory, swap, self.network.clone(), self.disk.clone())
     }
 
     fn collect_cpu(&mut self) -> CpuMetrics {
